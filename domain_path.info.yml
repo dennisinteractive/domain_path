@@ -1,0 +1,9 @@
+name: Domain Path
+type: module
+package: Domain
+description: 'Allow the same path to be used across different domains.'
+core: 8.x
+
+dependencies:
+  - domain
+  - domain_access

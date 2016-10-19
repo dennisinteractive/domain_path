@@ -1,0 +1,9 @@
+services:
+  domain_path.alias_storage:
+    class: Drupal\domain_path\DomainPathAliasStorage
+    arguments: ['@database', '@module_handler']
+    tags:
+      - { name: backend_overridable }
+
+  path.alias_storage:
+    alias: domain_path.alias_storage

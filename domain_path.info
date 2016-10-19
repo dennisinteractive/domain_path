@@ -1,7 +1,0 @@
-name = Domain Path
-description = Allows separate path aliases per domain.
-package = Domain Access
-dependencies[] = domain
-dependencies[] = path
-core = 7.x
-files[] = domain_path.module
