@@ -46,7 +46,7 @@ class AliasStorage extends CoreAliasStorage {
   public function getDomainId() {
     // If no domain id has been set, use the currently active one.
     if (is_null($this->domain_id)) {
-      $this->domain_id = (int) $this->domain_negotiator->getActiveId();
+      $this->domain_id = (int) $this->domain_negotiator->getActiveDomain()->getDomainId();
     }
     return $this->domain_id;
   }
@@ -160,8 +160,46 @@ class AliasStorage extends CoreAliasStorage {
   /**
    * {@inheritdoc}
    */
-  public function aliasExists($alias, $langcode, $source = NULL) {
+  public function lookupPathAlias($path, $langcode) {
+    $source = $this->connection->escapeLike($path);
+    $langcode_list = [$langcode, LanguageInterface::LANGCODE_NOT_SPECIFIED];
 
+    // See the queries above. Use LIKE for case-insensitive matching.
+    $select = $this->connection->select(static::TABLE)
+      ->fields(static::TABLE, ['alias'])
+      ->condition('source', $source, 'LIKE');
+    if ($langcode == LanguageInterface::LANGCODE_NOT_SPECIFIED) {
+      array_pop($langcode_list);
+    }
+    elseif ($langcode > LanguageInterface::LANGCODE_NOT_SPECIFIED) {
+      $select->orderBy('langcode', 'DESC');
+    }
+    else {
+      $select->orderBy('langcode', 'ASC');
+    }
+
+    $select->orderBy('pid', 'DESC');
+    $select->condition('langcode', $langcode_list, 'IN');
+
+    // Check existing for the given domain only.
+    $domain_id = $this->getDomainId();
+    if (!is_null($domain_id)) {
+      $select->condition('domain_id', $domain_id, '=');
+    }
+
+    try {
+      return $select->execute()->fetchField();
+    }
+    catch (\Exception $e) {
+      $this->catchException($e);
+      return FALSE;
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function aliasExists($alias, $langcode, $source = NULL) {
     // Use LIKE and NOT LIKE for case-insensitive matching.
     $query = $this->connection->select(static::TABLE)
       ->condition('alias', $this->connection->escapeLike($alias), 'LIKE')
@@ -170,17 +208,15 @@ class AliasStorage extends CoreAliasStorage {
       $query->condition('source', $this->connection->escapeLike($source), 'NOT LIKE');
     }
 
+    $query->addExpression('1');
+    $query->range(0, 1);
+
     // Check existing for the given domain only.
     $domain_id = $this->getDomainId();
-
-    //var_dump($alias, $domain_id); exit;
-
     if (!is_null($domain_id)) {
       $query->condition('domain_id', $domain_id, '=');
     }
 
-    $query->addExpression('1');
-    $query->range(0, 1);
     try {
       return (bool) $query->execute()->fetchField();
     }
