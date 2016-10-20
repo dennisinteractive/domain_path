@@ -1,2 +1,40 @@
 <?php
 
+
+/**
+ * Implements hook_field_widget_info_alter().
+ */
+function domain_path_field_widget_info_alter(&$widgets) {
+  $moduleHandler = \Drupal::service('module_handler');
+  if ($moduleHandler->moduleExists('pathauto')){
+    $widgets['path']['class'] = '\Drupal\domain_path\DomainPathPathautoWidget';
+  }
+  else {
+    $widgets['path']['class'] = '\Drupal\domain_path\DomainPathPathWidget';
+  }
+}
+
+/**
+ * Implements hook_field_info_alter().
+ */
+function domain_path_field_info_alter(&$info) {
+  $moduleHandler = \Drupal::service('module_handler');
+  if ($moduleHandler->moduleExists('pathauto')){
+    $info['path']['class'] = '\Drupal\domain_path\PathautoItem';
+  }
+  else {
+    $info['path']['class'] = '\Drupal\domain_path\PathItem';
+  }
+}
+
+/**
+ * Implements hook_module_implements_alter().
+ */
+function domain_path_module_implements_alter(&$implementations, $hook) {
+  if ($hook == 'field_widget_info_alter') {
+    // Run hook_field_widget_info_alter last so that it overrides pathauto.
+    $group = $implementations['domain_path'];
+    unset($implementations['domain_path']);
+    $implementations['domain_path'] = $group;
+  }
+}
