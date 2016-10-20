@@ -7,10 +7,10 @@
 function domain_path_field_widget_info_alter(&$widgets) {
   $moduleHandler = \Drupal::service('module_handler');
   if ($moduleHandler->moduleExists('pathauto')){
-    $widgets['path']['class'] = '\Drupal\domain_path\DomainPathPathautoWidget';
+    $widgets['path']['class'] = '\Drupal\domain_path\PathautoWidget';
   }
   else {
-    $widgets['path']['class'] = '\Drupal\domain_path\DomainPathPathWidget';
+    $widgets['path']['class'] = '\Drupal\domain_path\PathWidget';
   }
 }
 
@@ -19,7 +19,7 @@ function domain_path_field_widget_info_alter(&$widgets) {
  */
 function domain_path_field_info_alter(&$info) {
   $moduleHandler = \Drupal::service('module_handler');
-  if ($moduleHandler->moduleExists('pathauto')){
+  if ($moduleHandler->moduleExists('pathauto')) {
     $info['path']['class'] = '\Drupal\domain_path\PathautoItem';
   }
   else {

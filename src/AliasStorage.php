@@ -7,18 +7,20 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\LanguageInterface;
-use Drupal\Core\Path\AliasStorage;
+use Drupal\Core\Path\AliasStorage as CoreAliasStorage;
 use Drupal\domain\DomainNegotiatorInterface;
 
 /**
  * Overrides AliasStorage.
  */
-class DomainPathAliasStorage extends AliasStorage {
+class AliasStorage extends CoreAliasStorage {
 
   /**
    * The table for the url_alias storage.
    */
   const TABLE = 'domain_path';
+
+  const ALL_AFFILIATES = 0;
 
   protected $domain_id;
 
@@ -37,16 +39,21 @@ class DomainPathAliasStorage extends AliasStorage {
   }
 
   public function setDomainId($domain_id) {
-    $this->domain_id = $domain_id;
+    $this->domain_id = (int) $domain_id;
     return $this;
   }
 
   public function getDomainId() {
     // If no domain id has been set, use the currently active one.
-    if (empty($this->domain_id)) {
-      $this->domain_id = $this->domain_negotiator->getActiveId();
+    if (is_null($this->domain_id)) {
+      $this->domain_id = (int) $this->domain_negotiator->getActiveId();
     }
     return $this->domain_id;
+  }
+
+  public function setAllDomainIds() {
+    $this->setDomainId(0);
+    return $this;
   }
 
   public function setEntity(EntityInterface $entity) {
@@ -150,6 +157,38 @@ class DomainPathAliasStorage extends AliasStorage {
     return FALSE;
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function aliasExists($alias, $langcode, $source = NULL) {
+
+    // Use LIKE and NOT LIKE for case-insensitive matching.
+    $query = $this->connection->select(static::TABLE)
+      ->condition('alias', $this->connection->escapeLike($alias), 'LIKE')
+      ->condition('langcode', $langcode);
+    if (!empty($source)) {
+      $query->condition('source', $this->connection->escapeLike($source), 'NOT LIKE');
+    }
+
+    // Check existing for the given domain only.
+    $domain_id = $this->getDomainId();
+
+    //var_dump($alias, $domain_id); exit;
+
+    if (!is_null($domain_id)) {
+      $query->condition('domain_id', $domain_id, '=');
+    }
+
+    $query->addExpression('1');
+    $query->range(0, 1);
+    try {
+      return (bool) $query->execute()->fetchField();
+    }
+    catch (\Exception $e) {
+      $this->catchException($e);
+      return FALSE;
+    }
+  }
 
   /**
    * Defines the schema for the {domain_url_alias} table.
