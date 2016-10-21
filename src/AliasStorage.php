@@ -160,6 +160,34 @@ class AliasStorage extends CoreAliasStorage {
   /**
    * {@inheritdoc}
    */
+  public function loadMultiple($conditions) {
+    // parent::load but without the range restriction.
+    $select = $this->connection->select(static::TABLE);
+    foreach ($conditions as $field => $value) {
+      if ($field == 'source' || $field == 'alias') {
+        // Use LIKE for case-insensitive matching.
+        $select->condition($field, $this->connection->escapeLike($value), 'LIKE');
+      }
+      else {
+        $select->condition($field, $value);
+      }
+    }
+    try {
+      return $select
+        ->fields(static::TABLE)
+        ->orderBy('pid', 'DESC')
+        ->execute()
+        ->fetchAll();
+    }
+    catch (\Exception $e) {
+      $this->catchException($e);
+      return FALSE;
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function lookupPathAlias($path, $langcode) {
     $source = $this->connection->escapeLike($path);
     $langcode_list = [$langcode, LanguageInterface::LANGCODE_NOT_SPECIFIED];
