@@ -51,8 +51,8 @@ class AliasStorage extends CoreAliasStorage {
     return $this->domain_id;
   }
 
-  public function setAllDomainIds() {
-    $this->setDomainId(0);
+  public function setAllAffiliates() {
+    $this->setDomainId(static::ALL_AFFILIATES);
     return $this;
   }
 
@@ -163,11 +163,46 @@ class AliasStorage extends CoreAliasStorage {
   public function lookupPathAlias($path, $langcode) {
     $source = $this->connection->escapeLike($path);
     $langcode_list = [$langcode, LanguageInterface::LANGCODE_NOT_SPECIFIED];
-
     // See the queries above. Use LIKE for case-insensitive matching.
     $select = $this->connection->select(static::TABLE)
       ->fields(static::TABLE, ['alias'])
       ->condition('source', $source, 'LIKE');
+    if ($langcode == LanguageInterface::LANGCODE_NOT_SPECIFIED) {
+      array_pop($langcode_list);
+    }
+    elseif ($langcode > LanguageInterface::LANGCODE_NOT_SPECIFIED) {
+      $select->orderBy('langcode', 'DESC');
+    }
+    else {
+      $select->orderBy('langcode', 'ASC');
+    }
+    $select->orderBy('pid', 'DESC');
+    $select->condition('langcode', $langcode_list, 'IN');
+    // Check existing for the given domain only.
+    $domain_id = $this->getDomainId();
+    if (!is_null($domain_id)) {
+      $select->condition('domain_id', $domain_id, '=');
+    }
+    try {
+      return $select->execute()->fetchField();
+    }
+    catch (\Exception $e) {
+      $this->catchException($e);
+      return FALSE;
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function lookupPathSource($path, $langcode) {
+    $alias = $this->connection->escapeLike($path);
+    $langcode_list = [$langcode, LanguageInterface::LANGCODE_NOT_SPECIFIED];
+
+    // See the queries above. Use LIKE for case-insensitive matching.
+    $select = $this->connection->select(static::TABLE)
+      ->fields(static::TABLE, ['source'])
+      ->condition('alias', $alias, 'LIKE');
     if ($langcode == LanguageInterface::LANGCODE_NOT_SPECIFIED) {
       array_pop($langcode_list);
     }
@@ -219,6 +254,19 @@ class AliasStorage extends CoreAliasStorage {
 
     try {
       return (bool) $query->execute()->fetchField();
+    }
+    catch (\Exception $e) {
+      $this->catchException($e);
+      return FALSE;
+    }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function languageAliasExists() {
+    try {
+      return (bool) $this->connection->queryRange('SELECT 1 FROM {' . static::TABLE . '} WHERE langcode <> :langcode', 0, 1, array(':langcode' => LanguageInterface::LANGCODE_NOT_SPECIFIED))->fetchField();
     }
     catch (\Exception $e) {
       $this->catchException($e);

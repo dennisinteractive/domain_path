@@ -23,7 +23,7 @@ trait PathWidgetValidatorTrait {
       if (!empty($allAffiliates['value'])) {
         // Validate that the submitted alias does not exist yet.
         $is_exists = \Drupal::service('path.alias_storage')
-          ->setAllDomainIds()
+          ->setAllAffiliates()
           ->aliasExists($alias, $element['langcode']['#value'], $element['source']['#value']);
         if ($is_exists) {
           $form_state->setError($element, t('The alias is already in use by content available to all affiliates.'));
