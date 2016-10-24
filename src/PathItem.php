@@ -28,43 +28,41 @@ class PathItem extends CorePathItem {
     }
 
     $all_affiliates = $entity->get('field_domain_all_affiliates')->getValue();
-    if (!empty($all_affiliates['value'])) {
-      $values[] = AliasStorage::ALL_AFFILIATES;
-      //$pids[AliasStorage::ALL_AFFILIATES] = $row->pid;
+    if (!empty($all_affiliates[0]['value'])) {
+      $values['all'] = AliasStorage::ALL_AFFILIATES;
     }
 
     foreach ($values as $domain_id) {
-      if (!$update) {
-        if ($this->alias) {
-          \Drupal::service('path.alias_storage')
-            ->setDomainId($domain_id)
-            ->setEntity($entity)
-            ->save('/' . $entity->urlInfo()
-                ->getInternalPath(), $this->alias, $this->getLangcode());
-        }
+
+      // Check if its an update.
+      if (isset($pids[$domain_id])) {
+        $pid = $pids[$domain_id];
+        unset($pids[$domain_id]);
       }
       else {
-        if (isset($pids[$domain_id])) {
-          $pid = $pids[$domain_id];
-          unset($pids[$domain_id]);
-        }
-        else {
-          $pid = NULL;
-        }
-        // Delete old alias if user erased it.
-        if ($pid && !$this->alias) {
-          \Drupal::service('path.alias_storage')
-            ->delete(array('pid' => $pid));
-        }
-        // Only save a non-empty alias.
-        elseif ($this->alias) {
+        $pid = NULL;
+      }
+
+      // Only save a non-empty alias.
+      if ($this->alias) {
+        if (is_null($pid)) {
+          // Create a new record.
           \Drupal::service('path.alias_storage')
             ->setDomainId($domain_id)
             ->setEntity($entity)
             ->save('/' . $entity->urlInfo()
-                ->getInternalPath(), $this->alias, $this->getLangcode(), $pid);
+              ->getInternalPath(), $this->alias, $this->getLangcode());
+        }
+        else {
+          // Update the existing record.
+          \Drupal::service('path.alias_storage')
+            ->setDomainId($domain_id)
+            ->setEntity($entity)
+            ->save('/' . $entity->urlInfo()
+              ->getInternalPath(), $this->alias, $this->getLangcode(), $pid);
         }
       }
+
     }
 
     // If any pids are left, delete them.
@@ -74,7 +72,6 @@ class PathItem extends CorePathItem {
           ->delete(array('pid' => $pid));
       }
     }
-
 
   }
 
