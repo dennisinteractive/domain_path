@@ -85,7 +85,6 @@ class AliasStorage extends CoreAliasStorage {
    * {@inheritdoc}
    */
   public function save($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pid = NULL) {
-
     if ($source[0] !== '/') {
       throw new \InvalidArgumentException(sprintf('Source path %s has to start with a slash.', $source));
     }
@@ -94,13 +93,24 @@ class AliasStorage extends CoreAliasStorage {
       throw new \InvalidArgumentException(sprintf('Alias path %s has to start with a slash.', $alias));
     }
 
+    $moduleHandler = \Drupal::service('module_handler');
+    if ($moduleHandler->moduleExists('pathauto')) {
+      $source_parts = explode('/', $source);
+      $entity_type = $source_parts[1];
+      $entity_id = $source_parts[2];
+    }
+    else {
+      $entity_type = $this->getEntityType();
+      $entity_id = $this->getEntityId();
+    }
+
     $fields = array(
       'source' => $source,
       'alias' => $alias,
       'langcode' => $langcode,
       'domain_id' => $this->getDomainId(),
-      'entity_type' => $this->getEntityType(),
-      'entity_id' => $this->getEntityId(),
+      'entity_type' => $entity_type,
+      'entity_id' => $entity_id,
     );
 
     // Insert or update the alias.
@@ -245,10 +255,14 @@ class AliasStorage extends CoreAliasStorage {
     $select->condition('langcode', $langcode_list, 'IN');
 
     // Check existing for the given domain only.
+    $domain_ids = array();
     $domain_id = $this->getDomainId();
     if (!is_null($domain_id)) {
-      $select->condition('domain_id', $domain_id, '=');
+      $domain_ids[] = $domain_id;
     }
+    // Apart of a given domain, search for "all affiliates" as well.
+    array_push($domain_ids, 0);
+    $select->condition('domain_id', $domain_ids, 'IN');
 
     try {
       return $select->execute()->fetchField();
@@ -316,7 +330,7 @@ class AliasStorage extends CoreAliasStorage {
         ],
         'domain_id' => [
           'description' => 'Domain id for this alias',
-          'type' => 'int',
+          'type' => 'numeric',
           'not null' => TRUE,
           'default' => 0,
         ],
