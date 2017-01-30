@@ -46,8 +46,12 @@ class AliasStorage extends CoreAliasStorage {
   public function getDomainId() {
     // If no domain id has been set, use the currently active one.
     if (is_null($this->domain_id)) {
-      $this->domain_id = (int) $this->domain_negotiator->getActiveDomain()->getDomainId();
+      if (!is_null($this->domain_negotiator->getActiveDomain())) {
+        $this->domain_id = (int) $this->domain_negotiator->getActiveDomain()
+          ->getDomainId();
+      }
     }
+
     return $this->domain_id;
   }
 
