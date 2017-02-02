@@ -32,7 +32,6 @@ class PathautoItem extends BasePathautoItem {
       }
 
       foreach ($values as $domain_id) {
-
         // Check if its an update.
         if (isset($pids[$domain_id])) {
           $pid = $pids[$domain_id];

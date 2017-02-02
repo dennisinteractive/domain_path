@@ -97,17 +97,20 @@ class AliasStorage extends CoreAliasStorage {
       throw new \InvalidArgumentException(sprintf('Alias path %s has to start with a slash.', $alias));
     }
 
-    $moduleHandler = \Drupal::service('module_handler');
-    if ($moduleHandler->moduleExists('pathauto')) {
+    if ($this->moduleHandler->moduleExists('pathauto')) {
       $source_parts = explode('/', $source);
       $entity_type = $source_parts[1];
       $entity_id = $source_parts[2];
+      var_dump($source);
     }
     else {
       $entity_type = $this->getEntityType();
       $entity_id = $this->getEntityId();
+      var_dump($entity_type);
+      var_dump($entity_id);
     }
 
+    var_dump($this->getDomainId());
     $fields = array(
       'source' => $source,
       'alias' => $alias,
