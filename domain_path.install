@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * @file
+ * Domain path installation.
+ */
+
+/**
+ * Uninstall and cleanup.
+ */
+function domain_path_uninstall() {
+  // Delete table;
+  $schema = \Drupal\Core\Database\Database::getConnection()->schema();
+  $schema->dropTable('domain_path');
+  // Rebuild data.
+  node_access_needs_rebuild(TRUE);
+}

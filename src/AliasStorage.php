@@ -46,8 +46,12 @@ class AliasStorage extends CoreAliasStorage {
   public function getDomainId() {
     // If no domain id has been set, use the currently active one.
     if (is_null($this->domain_id)) {
-      $this->domain_id = (int) $this->domain_negotiator->getActiveDomain()->getDomainId();
+      if (!is_null($this->domain_negotiator->getActiveDomain())) {
+        $this->domain_id = (int) $this->domain_negotiator->getActiveDomain()
+          ->getDomainId();
+      }
     }
+
     return $this->domain_id;
   }
 
@@ -85,7 +89,6 @@ class AliasStorage extends CoreAliasStorage {
    * {@inheritdoc}
    */
   public function save($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pid = NULL) {
-
     if ($source[0] !== '/') {
       throw new \InvalidArgumentException(sprintf('Source path %s has to start with a slash.', $source));
     }
@@ -94,13 +97,27 @@ class AliasStorage extends CoreAliasStorage {
       throw new \InvalidArgumentException(sprintf('Alias path %s has to start with a slash.', $alias));
     }
 
+    if ($this->moduleHandler->moduleExists('pathauto')) {
+      $source_parts = explode('/', $source);
+      $entity_type = $source_parts[1];
+      $entity_id = $source_parts[2];
+      var_dump($source);
+    }
+    else {
+      $entity_type = $this->getEntityType();
+      $entity_id = $this->getEntityId();
+      var_dump($entity_type);
+      var_dump($entity_id);
+    }
+
+    var_dump($this->getDomainId());
     $fields = array(
       'source' => $source,
       'alias' => $alias,
       'langcode' => $langcode,
       'domain_id' => $this->getDomainId(),
-      'entity_type' => $this->getEntityType(),
-      'entity_id' => $this->getEntityId(),
+      'entity_type' => $entity_type,
+      'entity_id' => $entity_id,
     );
 
     // Insert or update the alias.
@@ -245,10 +262,14 @@ class AliasStorage extends CoreAliasStorage {
     $select->condition('langcode', $langcode_list, 'IN');
 
     // Check existing for the given domain only.
+    $domain_ids = array();
     $domain_id = $this->getDomainId();
     if (!is_null($domain_id)) {
-      $select->condition('domain_id', $domain_id, '=');
+      $domain_ids[] = $domain_id;
     }
+    // Apart of a given domain, search for "all affiliates" as well.
+    array_push($domain_ids, 0);
+    $select->condition('domain_id', $domain_ids, 'IN');
 
     try {
       return $select->execute()->fetchField();
