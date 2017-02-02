@@ -334,7 +334,7 @@ class AliasStorage extends CoreAliasStorage {
         ],
         'domain_id' => [
           'description' => 'Domain id for this alias',
-          'type' => 'numeric',
+          'type' => 'int',
           'not null' => TRUE,
           'default' => 0,
         ],
