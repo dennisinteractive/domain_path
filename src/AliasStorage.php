@@ -319,6 +319,7 @@ class AliasStorage extends CoreAliasStorage {
           'type' => 'int',
           'not null' => TRUE,
           'default' => 0,
+          'unsigned' => TRUE,
         ],
         'source' => [
           'description' => 'System path for the alias',
