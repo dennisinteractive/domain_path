@@ -25,17 +25,17 @@ class AliasStorageHelper extends PathautoAliasStorageHelper {
   public function saveByEntity(array $path, $existing_alias = NULL, $entity, $op = NULL) {
     $config = $this->configFactory->get('pathauto.settings');
 
-    $changed = $this->aliasStorage->entityAliasesHaveChanged($entity, $path['source']);
+    $changed = $path['source'] != $path['alias'] || $this->aliasStorage->entityAliasesHaveChanged($entity, $path['source']);
 
     // Alert users if they are trying to create an alias that is the same as the
     // internal path.
-    if ($path['source'] == $path['alias'] && !$changed) {
+    if (!$changed) {
       $this->messenger->addMessage($this->t('Ignoring alias %alias because it is the same as the internal path.', array('%alias' => $path['alias'])));
       return NULL;
     }
 
     // Skip replacing the current alias with an identical alias.
-    if (empty($existing_alias) || $existing_alias['alias'] != $path['alias']) {
+    if (empty($existing_alias) || $changed) {
       $path += array(
         'pathauto' => TRUE,
         'original' => $existing_alias,

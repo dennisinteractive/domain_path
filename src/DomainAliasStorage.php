@@ -144,8 +144,6 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
       }
     }
 
-    var_dump($results); exit;
-
     if (count($insert_alias_domains) === $results['insert']
       && count($update_alias_domains) === $results['update']
       && count($delete_alias_domains) === $results['delete']) {
