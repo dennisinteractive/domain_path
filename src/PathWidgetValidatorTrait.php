@@ -13,7 +13,6 @@ trait PathWidgetValidatorTrait {
    */
   public static function validateFormElement(array &$element, FormStateInterface $form_state) {
     // Trim the submitted value of whitespace and slashes.
-    $alias = rtrim(trim($element['alias']['#value']), " \\/");
     if (!empty($alias)) {
       $form_state->setValueForElement($element['alias'], $alias);
 

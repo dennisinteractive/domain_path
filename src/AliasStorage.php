@@ -8,12 +8,14 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Path\AliasStorage as CoreAliasStorage;
+use Drupal\Core\Path\AliasStorageInterface;
 use Drupal\domain\DomainNegotiatorInterface;
+use Drupal\domain_access\DomainAccessManagerInterface;
 
 /**
  * Overrides AliasStorage.
  */
-class AliasStorage extends CoreAliasStorage {
+class AliasStorage extends CoreAliasStorage implements DomainAliasStorageInterface {
 
   /**
    * The table for the url_alias storage.
@@ -22,86 +24,127 @@ class AliasStorage extends CoreAliasStorage {
 
   const ALL_AFFILIATES = 0;
 
-  protected $domain_id;
+  /**
+   * The inner, deocrated service.
+   *
+   * @var \Drupal\domain_access\DomainAccessManagerInterface
+   */
+  protected $parent;
 
-  protected $entity;
+  /**
+   * The domain access manager.
+   *
+   * @var \Drupal\domain_access\DomainAccessManagerInterface
+   */
+  protected $domainAccessManager;
 
   /**
    * The domain negotiator.
    *
    * @var \Drupal\domain\DomainNegotiatorInterface
    */
-  protected $domain_negotiator;
+  protected $domainNegotiator;
 
-  public function __construct(Connection $connection, ModuleHandlerInterface $module_handler, DomainNegotiatorInterface $domain_negotiator) {
-    $this->domain_negotiator = $domain_negotiator;
+  public function __construct(AliasStorageInterface $parent_service, Connection $connection, ModuleHandlerInterface $module_handler, DomainAccessManagerInterface $domain_access, DomainNegotiatorInterface $domain_negotiator) {
+    $this->parent = $parent_service;
+    $this->domainAccessManager = $domain_access;
+    $this->domainNegotiator = $domain_negotiator;
     parent::__construct($connection, $module_handler);
   }
 
-  public function setDomainId($domain_id) {
-    $this->domain_id = (int) $domain_id;
-    return $this;
+  /**
+   * {@inheritdoc}
+   */
+  public function getCurrentDomainId() {
+    return $this->domainNegotiator->getActiveDomain()->getDomainId();
   }
 
-  public function getDomainId() {
-    // If no domain id has been set, use the currently active one.
-    if (is_null($this->domain_id)) {
-      $this->domain_id = (int) $this->domain_negotiator->getActiveDomain()->getDomainId();
-    }
-    return $this->domain_id;
-  }
+  /**
+   * {@inheritdoc}
+   */
+  public function saveDomainAliases($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pids = [], $entity = NULL) {
+    // Save the path array.
+    $entity_domains = $this->domainAccessManager->getAccessValues($entity);
 
-  public function setAllAffiliates() {
-    $this->setDomainId(static::ALL_AFFILIATES);
-    return $this;
-  }
-
-  public function setEntity(EntityInterface $entity) {
-    $this->entity = $entity;
-    return $this;
-  }
-
-  public function getEntity() {
-    return $this->entity;
-  }
-
-  public function getEntityType() {
     $entity = $this->getEntity();
-    if (!empty($entity)) {
-      return $entity->getEntityType()->id();
-    }
-    return NULL;
-  }
+    $values  = \Drupal::service('domain_access.manager')->getAccessValues($entity);
 
-  public function getEntityId() {
-    $entity = $this->getEntity();
-    if (!empty($entity)) {
-      return $entity->id();
+    // Load all pids for this entity.
+    $source = $entity->toUrl()->getInternalPath();
+    $rows = \Drupal::service('path.alias_storage')->loadMultiple(['source' => $source]);
+    $pids = [];
+    foreach ($rows as $row) {
+      $pids[$row->domain_id] = $row->pid;
     }
-    return NULL;
+
+    $all_affiliates = $entity->get('field_domain_all_affiliates')->getValue();
+    if (!empty($all_affiliates[0]['value'])) {
+      $values['all'] = AliasStorage::ALL_AFFILIATES;
+    }
+
+    foreach ($values as $domain_id) {
+
+      // Check if its an update.
+      if (isset($pids[$domain_id])) {
+        $pid = $pids[$domain_id];
+        unset($pids[$domain_id]);
+      }
+      else {
+        $pid = NULL;
+      }
+
+      // Only save a non-empty alias.
+      if ($this->alias) {
+        if (is_null($pid)) {
+          // Create a new record.
+          $this->save($source, $alias, $langcode, $domain_id);
+        }
+        else {
+          // Update the existing record.
+          \Drupal::service('path.alias_storage')
+            ->setDomainId($domain_id)
+            ->setEntity($entity)
+            ->save('/' . $entity->toUrl()->getInternalPath(), $this->alias, $this->getLangcode(), $pid);
+        }
+      }
+
+    }
+
+    // If any pids are left, delete them.
+    if (count($pids) > 0) {
+      foreach ($pids as $pid) {
+        \Drupal::service('path.alias_storage')
+          ->delete(array('pid' => $pid));
+      }
+    }
+    $this->save($source, $alias, $langcode, $pids);
   }
 
   /**
    * {@inheritdoc}
    */
   public function save($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pid = NULL) {
-
     if ($source[0] !== '/') {
-      throw new \InvalidArgumentException(sprintf('Source path %s has to start with a slash.', $source));
+      throw new \InvalidArgumentException(sprintf('Source path %s has to start with a forward slash.', $source));
     }
-
     if ($alias[0] !== '/') {
-      throw new \InvalidArgumentException(sprintf('Alias path %s has to start with a slash.', $alias));
+      throw new \InvalidArgumentException(sprintf('Alias path %s has to start with a forward slash.', $alias));
     }
 
-    $fields = array(
+    // Base fields.
+    $fields = [
       'source' => $source,
       'alias' => $alias,
       'langcode' => $langcode,
-      'domain_id' => $this->getDomainId(),
       'entity_type' => $this->getEntityType(),
       'entity_id' => $this->getEntityId(),
-    );
+    ];
+    // All base values are required.
+    foreach ($fields as $column) {
+      if (empty($column)) {
+        return FALSE;
+      }
+    }
 
     // Insert or update the alias.
     if (empty($pid)) {
@@ -133,7 +176,7 @@ class AliasStorage extends CoreAliasStorage {
       // Fetch the current values so that an update hook can identify what
       // exactly changed.
       try {
-        $original = $this->connection->query('SELECT source, alias, langcode FROM {' . static::TABLE . '} WHERE pid = :pid', array(':pid' => $pid))
+        $original = $this->connection->query('SELECT source, alias, langcode FROM {' . static::TABLE . '} WHERE pid = :pid', [':pid' => $pid])
           ->fetchAssoc();
       }
       catch (\Exception $e) {
@@ -150,7 +193,7 @@ class AliasStorage extends CoreAliasStorage {
     }
     if ($pid) {
       // @todo Switch to using an event for this instead of a hook.
-      $this->moduleHandler->invokeAll('path_' . $operation, array($fields));
+      $this->moduleHandler->invokeAll('path_' . $operation, [$fields]);
       Cache::invalidateTags(['route_match']);
       return $fields;
     }
@@ -189,6 +232,18 @@ class AliasStorage extends CoreAliasStorage {
    * {@inheritdoc}
    */
   public function lookupPathAlias($path, $langcode) {
+    // Lookup for the given domain only.
+    $domain = !is_null($this->getCurrentDomainId());
+    if ($domain) {
+      $this->lookupPathAliasByDomain($path, $langcode, $domain);
+    }
+    return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function lookupPathAliasByDomain($path, $langcode, $domain) {
     $source = $this->connection->escapeLike($path);
     $langcode_list = [$langcode, LanguageInterface::LANGCODE_NOT_SPECIFIED];
     // See the queries above. Use LIKE for case-insensitive matching.
@@ -206,11 +261,8 @@ class AliasStorage extends CoreAliasStorage {
     }
     $select->orderBy('pid', 'DESC');
     $select->condition('langcode', $langcode_list, 'IN');
-    // Check existing for the given domain only.
-    $domain_id = $this->getDomainId();
-    if (!is_null($domain_id)) {
-      $select->condition('domain_id', $domain_id, '=');
-    }
+    $select->condition('domain_id', $domain, '=');
+
     try {
       return $select->execute()->fetchField();
     }
@@ -224,6 +276,18 @@ class AliasStorage extends CoreAliasStorage {
    * {@inheritdoc}
    */
   public function lookupPathSource($path, $langcode) {
+    // Lookup for the given domain only.
+    $domain = !is_null($this->getCurrentDomainId());
+    if ($domain) {
+      $this->lookupPathSourceByDomain($path, $langcode, $domain);
+    }
+    return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function lookupPathSourceByDomain($path, $langcode, $domain) {
     $alias = $this->connection->escapeLike($path);
     $langcode_list = [$langcode, LanguageInterface::LANGCODE_NOT_SPECIFIED];
 
@@ -244,11 +308,7 @@ class AliasStorage extends CoreAliasStorage {
     $select->orderBy('pid', 'DESC');
     $select->condition('langcode', $langcode_list, 'IN');
 
-    // Check existing for the given domain only.
-    $domain_id = $this->getDomainId();
-    if (!is_null($domain_id)) {
-      $select->condition('domain_id', $domain_id, '=');
-    }
+    $select->condition('domain_id', $domain, '=');
 
     try {
       return $select->execute()->fetchField();
@@ -263,6 +323,18 @@ class AliasStorage extends CoreAliasStorage {
    * {@inheritdoc}
    */
   public function aliasExists($alias, $langcode, $source = NULL) {
+    // Lookup for the given domain only.
+    $domain = !is_null($this->getCurrentDomainId());
+    if ($domain) {
+      $this->aliasExistsByDomain($alias, $langcode, $source, $domain);
+    }
+    return FALSE;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function aliasExistsByDomain($alias, $langcode, $source = NULL, $domain) {
     // Use LIKE and NOT LIKE for case-insensitive matching.
     $query = $this->connection->select(static::TABLE)
       ->condition('alias', $this->connection->escapeLike($alias), 'LIKE')
@@ -274,11 +346,7 @@ class AliasStorage extends CoreAliasStorage {
     $query->addExpression('1');
     $query->range(0, 1);
 
-    // Check existing for the given domain only.
-    $domain_id = $this->getDomainId();
-    if (!is_null($domain_id)) {
-      $query->condition('domain_id', $domain_id, '=');
-    }
+    $query->condition('domain_id', $domain, '=');
 
     try {
       return (bool) $query->execute()->fetchField();
@@ -294,7 +362,7 @@ class AliasStorage extends CoreAliasStorage {
    */
   public function languageAliasExists() {
     try {
-      return (bool) $this->connection->queryRange('SELECT 1 FROM {' . static::TABLE . '} WHERE langcode <> :langcode', 0, 1, array(':langcode' => LanguageInterface::LANGCODE_NOT_SPECIFIED))->fetchField();
+      return (bool) $this->connection->queryRange('SELECT 1 FROM {' . static::TABLE . '} WHERE langcode <> :langcode', 0, 1, [':langcode' => LanguageInterface::LANGCODE_NOT_SPECIFIED])->fetchField();
     }
     catch (\Exception $e) {
       $this->catchException($e);
@@ -303,7 +371,7 @@ class AliasStorage extends CoreAliasStorage {
   }
 
   /**
-   * Defines the schema for the {domain_url_alias} table.
+   * {@inheritdoc}
    */
   public static function schemaDefinition() {
     return [
