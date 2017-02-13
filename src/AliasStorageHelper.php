@@ -20,6 +20,13 @@ use Drupal\Core\StringTranslation\TranslationInterface;
 class AliasStorageHelper extends PathautoAliasStorageHelper {
 
   /**
+   * Check if the entity needs updating.
+   */
+  public function entityNeedsAliasUpdate($entity) {
+    //$entity_domains = $this->domainAccessManager->getAccessValues($entity);
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function saveByEntity(array $path, $existing_alias = NULL, $entity, $op = NULL) {
@@ -51,6 +58,7 @@ class AliasStorageHelper extends PathautoAliasStorageHelper {
             // Create a new alias instead of overwriting the existing by leaving
             // $path['pid'] empty.
             $op = 'insert';
+            $this->aliasStorage->setDeleteInaccessible(FALSE);
             break;
 
           case PathautoGeneratorInterface::UPDATE_ACTION_DELETE:
@@ -82,112 +90,6 @@ class AliasStorageHelper extends PathautoAliasStorageHelper {
       }
 
       return $path;
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function loadBySource($source, $language = LanguageInterface::LANGCODE_NOT_SPECIFIED) {
-    $alias = $this->aliasStorage->load([
-      'source' => $source,
-      'langcode' => $language,
-    ]);
-    // If no alias was fetched and if a language was specified, fallbacks to
-    // undefined language.
-    if (!$alias && ($language !== LanguageInterface::LANGCODE_NOT_SPECIFIED)) {
-      $alias = $this->aliasStorage->load([
-        'source' => $source,
-        'langcode' => LanguageInterface::LANGCODE_NOT_SPECIFIED,
-      ]);
-    }
-    return $alias;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function deleteBySourcePrefix($source) {
-    $pids = $this->loadBySourcePrefix($source);
-    if ($pids) {
-      $this->deleteMultiple($pids);
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function deleteAll() {
-    $this->database->truncate('url_alias')->execute();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function deleteEntityPathAll(EntityInterface $entity, $default_uri = NULL) {
-    $this->deleteBySourcePrefix('/' . $entity->toUrl('canonical')->getInternalPath());
-    if (isset($default_uri) && $entity->toUrl('canonical')->toString() != $default_uri) {
-      $this->deleteBySourcePrefix($default_uri);
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function loadBySourcePrefix($source) {
-    $select = $this->database->select('url_alias', 'u')
-      ->fields('u', array('pid'));
-
-    $or_group = $select->orConditionGroup()
-      ->condition('source', $source)
-      ->condition('source', rtrim($source, '/') . '/%', 'LIKE');
-
-    return $select
-      ->condition($or_group)
-      ->execute()
-      ->fetchCol();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function countBySourcePrefix($source) {
-    $select = $this->database->select('url_alias', 'u')
-      ->fields('u', array('pid'));
-
-    $or_group = $select->orConditionGroup()
-      ->condition('source', $source)
-      ->condition('source', rtrim($source, '/') . '/%', 'LIKE');
-
-    return $select
-      ->condition($or_group)
-      ->countQuery()
-      ->execute()
-      ->fetchField();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function countAll() {
-    return $this->database->select('url_alias')
-      ->countQuery()
-      ->execute()
-      ->fetchField();
-  }
-
-  /**
-   * Delete multiple URL aliases.
-   *
-   * Intent of this is to abstract a potential path_delete_multiple() function
-   * for Drupal 7 or 8.
-   *
-   * @param int[] $pids
-   *   An array of path IDs to delete.
-   */
-  public function deleteMultiple($pids) {
-    foreach ($pids as $pid) {
-      $this->aliasStorage->delete(array('pid' => $pid));
     }
   }
 

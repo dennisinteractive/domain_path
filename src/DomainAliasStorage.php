@@ -15,13 +15,16 @@ use Drupal\domain_access\DomainAccessManagerInterface;
 /**
  * Overrides AliasStorage.
  */
-class AliasStorage extends CoreAliasStorage implements DomainAliasStorageInterface {
+class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageInterface {
 
   /**
    * The table for the url_alias storage.
    */
   const TABLE = 'domain_path';
 
+  /**
+   * The value used for an entity that is globally accessible.
+   */
   const ALL_AFFILIATES = 0;
 
   /**
@@ -45,11 +48,31 @@ class AliasStorage extends CoreAliasStorage implements DomainAliasStorageInterfa
    */
   protected $domainNegotiator;
 
+  /**
+   * Whether to delete the aliases for domains that an entity will
+   * no longer be accessible on after the entity has been updated.
+   */
+  protected $deleteInaccessible = TRUE;
+
   public function __construct(AliasStorageInterface $parent_service, Connection $connection, ModuleHandlerInterface $module_handler, DomainAccessManagerInterface $domain_access, DomainNegotiatorInterface $domain_negotiator) {
     $this->parent = $parent_service;
     $this->domainAccessManager = $domain_access;
     $this->domainNegotiator = $domain_negotiator;
     parent::__construct($connection, $module_handler);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getDeleteInaccessible() {
+    return $this->deleteInaccessible;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function setDeleteInaccessible($value) {
+    return $this->deleteInaccessible = $value ? TRUE : FALSE;
   }
 
   /**
@@ -62,68 +85,81 @@ class AliasStorage extends CoreAliasStorage implements DomainAliasStorageInterfa
   /**
    * {@inheritdoc}
    */
-  public function saveDomainAliases($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pids = [], $entity = NULL) {
+  public function saveDomainAliases($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $entity, $op = 'insert') {
     // Save the path array.
     $entity_domains = $this->domainAccessManager->getAccessValues($entity);
-
-    $entity = $this->getEntity();
-    $values  = \Drupal::service('domain_access.manager')->getAccessValues($entity);
+    if (!$entity_domains) {
+      return FALSE;
+    }
+    // The value of $entity_domains items will be the domain's machine name.
+    $entity_domains = array_flip($entity_domains);
 
     // Load all pids for this entity.
-    $source = $entity->toUrl()->getInternalPath();
-    $rows = \Drupal::service('path.alias_storage')->loadMultiple(['source' => $source]);
+    $rows = $this->loadMultiple(['source' => $source]);
+    // The value of $pids items will be the pid identifying the url alias record.
     $pids = [];
     foreach ($rows as $row) {
       $pids[$row->domain_id] = $row->pid;
     }
 
-    $all_affiliates = $entity->get('field_domain_all_affiliates')->getValue();
-    if (!empty($all_affiliates[0]['value'])) {
-      $values['all'] = AliasStorage::ALL_AFFILIATES;
-    }
+    // We need to determine which domains to insert, update and delete aliases for.
+    switch ($op) {
+      case 'update':
+        $update_alias_domains = array_intersect_key($pids, $entity_domains);
+        $delete_alias_domains = $this->getDeleteInaccessible() ? array_diff_key($pids, $entity_domains) : [];
+        $insert_alias_domains = array_diff_key($entity_domains, $pids);
+        break;
 
-    foreach ($values as $domain_id) {
-
-      // Check if its an update.
-      if (isset($pids[$domain_id])) {
-        $pid = $pids[$domain_id];
-        unset($pids[$domain_id]);
-      }
-      else {
-        $pid = NULL;
-      }
-
-      // Only save a non-empty alias.
-      if ($this->alias) {
-        if (is_null($pid)) {
-          // Create a new record.
-          $this->save($source, $alias, $langcode, $domain_id);
-        }
-        else {
-          // Update the existing record.
-          \Drupal::service('path.alias_storage')
-            ->setDomainId($domain_id)
-            ->setEntity($entity)
-            ->save('/' . $entity->toUrl()->getInternalPath(), $this->alias, $this->getLangcode(), $pid);
-        }
-      }
+      case 'insert':
+        $update_alias_domains = [];
+        $delete_alias_domains = $this->getDeleteInaccessible() ? array_diff_key($pids, $entity_domains) : [];
+        $insert_alias_domains = array_diff_key($entity_domains, $pids) + array_intersect_key($entity_domains, $pids);
+        break;
 
     }
 
-    // If any pids are left, delete them.
-    if (count($pids) > 0) {
-      foreach ($pids as $pid) {
-        \Drupal::service('path.alias_storage')
-          ->delete(array('pid' => $pid));
+    $results = [
+      'insert' => 0,
+      'update' => 0,
+      'delete' => 0,
+    ];
+    foreach ($insert_alias_domains as $domain_id => $domain_machinename) {
+      // Create a new record.
+      if ($result = $this->saveDomainAlias($source, $alias, $langcode, $entity,  $domain_id)) {
+        $results['insert']++;
       }
     }
-    $this->save($source, $alias, $langcode, $pids);
+
+    foreach ($update_alias_domains as $domain_id => $pid) {
+      // Update the existing record.
+      if ($result = $this->saveDomainAlias($source, $alias, $langcode, $entity, $domain_id, $pid)) {
+        $results['update']++;
+      }
+    }
+
+    foreach ($delete_alias_domains as $domain_id => $pid) {
+      // Delete the old alias.
+      if ($result = $this->delete(['pid' => $pid])) {
+        $results['delete']++;
+      }
+    }
+
+    var_dump($results); exit;
+
+    if (count($insert_alias_domains) === $results['insert']
+      && count($update_alias_domains) === $results['update']
+      && count($delete_alias_domains) === $results['delete']) {
+      return TRUE;
+    }
+    else {
+      return FALSE;
+    }
   }
 
   /**
    * {@inheritdoc}
    */
-  public function save($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pid = NULL) {
+  public function saveDomainAlias($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $entity, $domain, $pid = NULL) {
     if ($source[0] !== '/') {
       throw new \InvalidArgumentException(sprintf('Source path %s has to start with a forward slash.', $source));
     }
@@ -136,8 +172,9 @@ class AliasStorage extends CoreAliasStorage implements DomainAliasStorageInterfa
       'source' => $source,
       'alias' => $alias,
       'langcode' => $langcode,
-      'entity_type' => $this->getEntityType(),
-      'entity_id' => $this->getEntityId(),
+      'domain_id' => $domain,
+      'entity_type' => $entity->getEntityTypeId(),
+      'entity_id' => $entity->id(),
     ];
     // All base values are required.
     foreach ($fields as $column) {

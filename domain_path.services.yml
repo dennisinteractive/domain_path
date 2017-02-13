@@ -1,6 +1,6 @@
 services:
   domain_path.alias_storage:
-    class: Drupal\domain_path\AliasStorage
+    class: Drupal\domain_path\DomainAliasStorage
     public: false
     decorates: path.alias_storage
     decoration_priority: 1

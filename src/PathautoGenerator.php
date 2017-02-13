@@ -203,6 +203,7 @@ class PathautoGenerator implements PathautoGeneratorInterface {
     // that is the case, then stop because we should not generate an alias.
     // @see token_scan()
     $pattern_tokens_removed = preg_replace('/\[[^\s\]:]*:[^\s\]]*\]/', '', $pattern->getPattern());
+
     if ($alias === $pattern_tokens_removed) {
       return NULL;
     }
