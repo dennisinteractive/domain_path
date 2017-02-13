@@ -238,6 +238,27 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
   }
 
   /**
+   * Check if the entity's aliases need updating.
+   */
+  public function entityAliasesHaveChanged($entity, $source) {
+    $entity_domains = $this->domainAccessManager->getAccessValues($entity);
+    $updated = $entity_domains ? array_values($entity_domains) : [];
+
+    $rows = $this->loadMultiple(['source' => $source]);
+    $pids = [];
+    foreach ($rows as $row) {
+      $pids[] = (int) $row->domain_id;
+    }
+
+    $old = array_diff($pids, $updated);
+    $new = array_diff($updated, $pids);
+    if (count($old) > 0 || count($new) > 0) {
+      return TRUE;
+    }
+    return FALSE;
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function loadMultiple($conditions) {
