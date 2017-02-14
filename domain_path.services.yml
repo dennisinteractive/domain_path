@@ -5,6 +5,10 @@ services:
     decorates: path.alias_storage
     decoration_priority: 1
     decoration_inner_name: path.alias_storage.parent
-    arguments: ['@path.alias_storage.parent', '@database', '@module_handler', '@domain_access.manager', '@domain.negotiator']
+    arguments: ['@database', '@module_handler', '@path.alias_storage.parent']
     tags:
       - { name: backend_overridable }
+    calls:
+      - [setDomainAccessManager, ['@domain_access.manager']]
+      - [setDomainNegotiator, ['@domain.negotiator']]
+      - [setEntityTypeManager, ['@entity_type.manager']]

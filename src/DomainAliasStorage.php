@@ -5,6 +5,8 @@ namespace Drupal\domain_path;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeManager;
+use Drupal\Core\Url;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Path\AliasStorage as CoreAliasStorage;
@@ -49,15 +51,20 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
   protected $domainNegotiator;
 
   /**
+   * The entity type manager.
+   *
+   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   */
+  protected $entityTypeManager;
+
+  /**
    * Whether to delete the aliases for domains that an entity will
    * no longer be accessible on after the entity has been updated.
    */
   protected $deleteInaccessible = TRUE;
 
-  public function __construct(AliasStorageInterface $parent_service, Connection $connection, ModuleHandlerInterface $module_handler, DomainAccessManagerInterface $domain_access, DomainNegotiatorInterface $domain_negotiator) {
+  public function __construct(Connection $connection, ModuleHandlerInterface $module_handler, AliasStorageInterface $parent_service) {
     $this->parent = $parent_service;
-    $this->domainAccessManager = $domain_access;
-    $this->domainNegotiator = $domain_negotiator;
     parent::__construct($connection, $module_handler);
   }
 
@@ -76,6 +83,27 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
   }
 
   /**
+   * Setter Injection to set our Domain Access Manager dependency.
+   */
+  public function setDomainAccessManager(DomainAccessManagerInterface $domain_access) {
+    $this->domainAccessManager = $domain_access;
+  }
+
+  /**
+   * Setter Injection to set our Domain Negotiator dependency.
+   */
+  public function setDomainNegotiator(DomainNegotiatorInterface $domain_negotiator) {
+    $this->domainNegotiator = $domain_negotiator;
+  }
+
+  /**
+   * Setter Injection to set our Domain Negotiator dependency.
+   */
+  public function setEntityTypeManager(EntityTypeManager $entity_type_manager) {
+    $this->entityTypeManager = $entity_type_manager;
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function getCurrentDomainId() {
@@ -85,7 +113,14 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
   /**
    * {@inheritdoc}
    */
-  public function saveDomainAliases($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $entity, $op = 'insert') {
+  public function save($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pid = NULL) {
+    $params = Url::fromUri("internal:" . $source)->getRouteParameters();
+    $entity_type = key($params);
+    $entity = \Drupal::entityTypeManager()->getStorage($entity_type)->load($params[$entity_type]);
+
+    // We won't use the pid supplied, other to tell whether we want to update or insert.
+    $op = !empty($pid) ? 'update' : 'insert';
+
     // Save the path array.
     $entity_domains = $this->domainAccessManager->getAccessValues($entity);
     if (!$entity_domains) {
@@ -289,9 +324,9 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
    */
   public function lookupPathAlias($path, $langcode) {
     // Lookup for the given domain only.
-    $domain = !is_null($this->getCurrentDomainId());
-    if ($domain) {
-      $this->lookupPathAliasByDomain($path, $langcode, $domain);
+    $domain = $this->getCurrentDomainId();
+    if (!is_null($domain)) {
+      return $this->lookupPathAliasByDomain($path, $langcode, $domain);
     }
     return FALSE;
   }
@@ -333,9 +368,9 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
    */
   public function lookupPathSource($path, $langcode) {
     // Lookup for the given domain only.
-    $domain = !is_null($this->getCurrentDomainId());
-    if ($domain) {
-      $this->lookupPathSourceByDomain($path, $langcode, $domain);
+    $domain = $this->getCurrentDomainId();
+    if (!is_null($domain)) {
+      return $this->lookupPathSourceByDomain($path, $langcode, $domain);
     }
     return FALSE;
   }
@@ -365,7 +400,6 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
     $select->condition('langcode', $langcode_list, 'IN');
 
     $select->condition('domain_id', $domain, '=');
-
     try {
       return $select->execute()->fetchField();
     }
@@ -380,9 +414,9 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
    */
   public function aliasExists($alias, $langcode, $source = NULL) {
     // Lookup for the given domain only.
-    $domain = !is_null($this->getCurrentDomainId());
-    if ($domain) {
-      $this->aliasExistsByDomain($alias, $langcode, $source, $domain);
+    $domain = $this->getCurrentDomainId();
+    if (!is_null($domain)) {
+      return $this->aliasExistsByDomain($alias, $langcode, $source, $domain);
     }
     return FALSE;
   }

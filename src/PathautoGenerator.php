@@ -243,7 +243,7 @@ class PathautoGenerator implements PathautoGeneratorInterface {
       'language' => $langcode,
     );
 
-    return $this->aliasStorageHelper->saveByEntity($path, $existing_alias, $entity, $op);
+    return $this->aliasStorageHelper->save($path, $existing_alias, $op);
   }
 
   /**
