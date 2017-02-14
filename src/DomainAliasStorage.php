@@ -120,9 +120,12 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
 
     // We won't use the pid supplied, other to tell whether we want to update or insert.
     $op = !empty($pid) ? 'update' : 'insert';
-
-    // Save the path array.
+    // Get the domains this alias is available on.
     $entity_domains = $this->domainAccessManager->getAccessValues($entity);
+    $all_affiliates = $entity->get('field_domain_all_affiliates')->getValue();
+    if (!empty($all_affiliates[0]['value'])) {
+      $entity_domains['all'] = self::ALL_AFFILIATES;
+    }
     if (!$entity_domains) {
       return FALSE;
     }
@@ -211,7 +214,7 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
     ];
     // All base values are required.
     foreach ($fields as $column) {
-      if (empty($column)) {
+      if (!isset($column)) {
         return FALSE;
       }
     }
