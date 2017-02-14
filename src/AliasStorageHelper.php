@@ -24,7 +24,7 @@ class AliasStorageHelper extends PathautoAliasStorageHelper {
    * {@inheritdoc}
    */
   public function save(array $path, $existing_alias = NULL, $op = NULL) {
-    if (empty($path['source'])) {
+    if (empty($path['source']) || empty($path['alias'])) {
       return NULL;
     }
     $params = Url::fromUri("internal:" . $path['source'])->getRouteParameters();

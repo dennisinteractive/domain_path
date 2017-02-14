@@ -114,6 +114,9 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
    * {@inheritdoc}
    */
   public function save($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pid = NULL) {
+    if (empty($source) || empty($alias)) {
+      return NULL;
+    }
     $params = Url::fromUri("internal:" . $source)->getRouteParameters();
     $entity_type = key($params);
     $entity = \Drupal::entityTypeManager()->getStorage($entity_type)->load($params[$entity_type]);
@@ -329,7 +332,9 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
     // Lookup for the given domain only.
     $domain = $this->getCurrentDomainId();
     if (!is_null($domain)) {
-      return $this->lookupPathAliasByDomain($path, $langcode, $domain);
+      $single = $this->lookupPathAliasByDomain($path, $langcode, $domain);
+      $all = $this->lookupPathAliasByDomain($path, $langcode, self::ALL_AFFILIATES);
+      return $single ? $single : $all;
     }
     return FALSE;
   }
@@ -373,7 +378,9 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
     // Lookup for the given domain only.
     $domain = $this->getCurrentDomainId();
     if (!is_null($domain)) {
-      return $this->lookupPathSourceByDomain($path, $langcode, $domain);
+      $single = $this->lookupPathSourceByDomain($path, $langcode, $domain);
+      $all = $this->lookupPathSourceByDomain($path, $langcode, self::ALL_AFFILIATES);
+      return $single ? $single : $all;
     }
     return FALSE;
   }
@@ -419,7 +426,9 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
     // Lookup for the given domain only.
     $domain = $this->getCurrentDomainId();
     if (!is_null($domain)) {
-      return $this->aliasExistsByDomain($alias, $langcode, $source, $domain);
+      $single = $this->aliasExistsByDomain($alias, $langcode, $source, $domain);
+      $all = $this->aliasExistsByDomain($alias, $langcode, $source, self::ALL_AFFILIATES);
+      return $single ? $single : $all;
     }
     return FALSE;
   }
