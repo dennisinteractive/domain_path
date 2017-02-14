@@ -159,6 +159,13 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
 
     }
 
+    // Check if the alias exists for another domain
+    foreach ($insert_alias_domains + $update_alias_domains as $domain_id) {
+      if ($this->aliasExistsByDomain($alias, $langcode, NULL, $domain_id)) {
+        return FALSE;
+      }
+    }
+
     $results = [
       'insert' => 0,
       'update' => 0,
