@@ -114,92 +114,74 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
    * {@inheritdoc}
    */
   public function save($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pid = NULL) {
+    $save_result = TRUE;
+
     if (empty($source) || empty($alias)) {
       return NULL;
     }
-    $params = Url::fromUri("internal:" . $source)->getRouteParameters();
-    $entity_type = key($params);
-    $entity = \Drupal::entityTypeManager()->getStorage($entity_type)->load($params[$entity_type]);
 
-    // We won't use the pid supplied, other to tell whether we want to update or insert.
-    $op = !empty($pid) ? 'update' : 'insert';
-    // Get the domains this alias is available on.
-    $entity_domains = $this->domainAccessManager->getAccessValues($entity);
-    $all_affiliates = $entity->get('field_domain_all_affiliates')->getValue();
-    if (!empty($all_affiliates[0]['value'])) {
-      $entity_domains['all'] = self::ALL_AFFILIATES;
-    }
-    if (!$entity_domains) {
+    // Get the entity for this alias using the source
+    $entity = $this->entityFromSource($source);
+    if (empty($entity)) {
       return FALSE;
     }
-    // The value of $entity_domains items will be the domain's machine name.
-    $entity_domains = array_flip($entity_domains);
 
-    // Load all pids for this entity.
-    $rows = $this->loadMultiple(['source' => $source]);
-    // The value of $pids items will be the pid identifying the url alias record.
-    $pids = [];
-    foreach ($rows as $row) {
-      $pids[$row->domain_id] = $row->pid;
-    }
-
-    // We need to determine which domains to insert, update and delete aliases for.
-    switch ($op) {
-      case 'update':
-        $update_alias_domains = array_intersect_key($pids, $entity_domains);
-        $delete_alias_domains = $this->getDeleteInaccessible() ? array_diff_key($pids, $entity_domains) : [];
-        $insert_alias_domains = array_diff_key($entity_domains, $pids);
-        break;
-
-      case 'insert':
-        $update_alias_domains = [];
-        $delete_alias_domains = $this->getDeleteInaccessible() ? array_diff_key($pids, $entity_domains) : [];
-        $insert_alias_domains = array_diff_key($entity_domains, $pids) + array_intersect_key($entity_domains, $pids);
-        break;
-
-    }
-
-    // Check if the alias exists for another domain
-    foreach ($insert_alias_domains + $update_alias_domains as $domain_id) {
-      if ($this->aliasExistsByDomain($alias, $langcode, NULL, $domain_id)) {
-        return FALSE;
-      }
-    }
-
-    $results = [
-      'insert' => 0,
-      'update' => 0,
-      'delete' => 0,
-    ];
-    foreach ($insert_alias_domains as $domain_id => $domain_machinename) {
-      // Create a new record.
-      if ($result = $this->saveDomainAlias($source, $alias, $langcode, $entity,  $domain_id)) {
-        $results['insert']++;
-      }
-    }
-
-    foreach ($update_alias_domains as $domain_id => $pid) {
-      // Update the existing record.
-      if ($result = $this->saveDomainAlias($source, $alias, $langcode, $entity, $domain_id, $pid)) {
-        $results['update']++;
-      }
-    }
-
-    foreach ($delete_alias_domains as $domain_id => $pid) {
-      // Delete the old alias.
-      if ($result = $this->delete(['pid' => $pid])) {
-        $results['delete']++;
-      }
-    }
-
-    if (count($insert_alias_domains) === $results['insert']
-      && count($update_alias_domains) === $results['update']
-      && count($delete_alias_domains) === $results['delete']) {
-      return TRUE;
-    }
-    else {
+    // Check that the loaded entity has domain access enabled and configured.
+    $entity_domains = $this->getEntityDomains($entity);
+    if (empty($entity_domains)) {
+      // Either domain access is not enabled, or not configured
       return FALSE;
     }
+
+    // Load all existing aliases for this entity.
+    $existing_aliases = $this->loadMultiple(['source' => $source]);
+
+    // Alias must be present for all entity_domains.
+    foreach ($entity_domains as $machine_name => $domain) {
+      $domain_id = $domain->getDomainId();
+      $found = FALSE;
+      foreach ($existing_aliases as $existing_alias) {
+        // Note that domain_id is an integer, so we can use equality operator rather than
+        // identical operator for comparison, and thus avoid casting.
+        if ($existing_alias->domain_id == $domain_id) {
+          // There is already an alias record, so update it
+          dsm('Updated ' . $existing_alias->pid);
+          if (!$this->saveDomainAlias($source, $alias, $langcode, $entity, $domain_id, $existing_alias->pid)) {
+            $save_result = FALSE;
+          }
+          $found = $existing_alias;
+          break;
+        }
+      }
+      // We did not find any alias, so insert a new alias
+      if (!$found) {
+        // Create a new record.
+        dsm('Inserted record for  ' . $domain->get('domain_id'));
+        if (!$this->saveDomainAlias($source, $alias, $langcode, $entity, $domain_id)) {
+          $save_result = FALSE;
+        }
+      }
+    }
+
+    // Aliases must not be present for any other domains
+    // note. We could do intersects to streamline this.
+    foreach ($existing_aliases as $existing_alias) {
+      $found = FALSE;
+      foreach ($entity_domains as $machine_name => $domain) {
+        if ($existing_alias->domain_id == $domain->get('domain_id')) {
+          $found = TRUE;
+          break;
+        }
+      }
+      if (!$found) {
+        dsm('Deleted ' . $existing_alias->pid);
+        if (!$this->delete(['pid' => $existing_alias->pid])) {
+          $save_result = FALSE;
+        }
+      }
+    }
+
+    return $save_result;
   }
 
   /**
@@ -284,6 +266,56 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
   }
 
   /**
+   * Load an entity from source string, eg. /node/1
+   *
+   * @param $source
+   * @return bool|EntityInterface|null
+   */
+  public function entityFromSource($source) {
+    // Try load the entity specified by $source.
+    // We do this using the internal scheme, if that
+    // fails then we try using the entity pattern of entity_type/entity_id
+    $url_object = Url::fromUri("internal:" . $source);
+    if ($url_object->isRouted()) {
+      $params = $url_object->getRouteParameters();
+      $entity_type = key($params);
+      $entity_id = $params[$entity_type];
+    }
+    else {
+      $parts = explode('/', ltrim($source, '/'));
+      $entity_type = isset($parts[0]) ? $parts[0] : FALSE;
+      $entity_id = isset($parts[1]) ? $parts[1] : FALSE;
+      if ($entity_type === 'taxonomy') {
+        $entity_type = 'taxonomy_term';
+        $entity_id = isset($parts[2]) ? $parts[2] : FALSE;
+      }
+    }
+
+    if (!empty($entity_type) || !empty($entity_id)) {
+      return \Drupal::entityTypeManager()->getStorage($entity_type)->load($entity_id);
+    }
+
+    return FALSE;
+  }
+
+  /**
+   * Get all Domains that an entity has access too.
+   *
+   * @param $entity
+   * @return mixed
+   */
+  public function getEntityDomains($entity) {
+    // Check the 'All Affiliates' field
+    if (!empty($this->domainAccessManager->getAllValue($entity))) {
+      return \Drupal::service('domain.loader')->loadMultiple();
+    }
+
+    // Check that the loaded entity has domain access enabled and configured.
+    $entity_domains = $this->domainAccessManager->getAccessValues($entity);
+    return \Drupal::service('domain.loader')->loadMultiple(array_flip($entity_domains));
+  }
+
+  /**
    * Check if the entity's aliases need updating.
    */
   public function entityAliasesHaveChanged($entity, $source) {
@@ -336,12 +368,11 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
    * {@inheritdoc}
    */
   public function lookupPathAlias($path, $langcode) {
+
     // Lookup for the given domain only.
     $domain = $this->getCurrentDomainId();
     if (!is_null($domain)) {
-      $single = $this->lookupPathAliasByDomain($path, $langcode, $domain);
-      $all = $this->lookupPathAliasByDomain($path, $langcode, self::ALL_AFFILIATES);
-      return $single ? $single : $all;
+      return $this->lookupPathAliasByDomain($path, $langcode, $domain);
     }
     return FALSE;
   }
@@ -385,9 +416,7 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
     // Lookup for the given domain only.
     $domain = $this->getCurrentDomainId();
     if (!is_null($domain)) {
-      $single = $this->lookupPathSourceByDomain($path, $langcode, $domain);
-      $all = $this->lookupPathSourceByDomain($path, $langcode, self::ALL_AFFILIATES);
-      return $single ? $single : $all;
+      return $this->lookupPathSourceByDomain($path, $langcode, $domain);
     }
     return FALSE;
   }
@@ -430,13 +459,13 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
    * {@inheritdoc}
    */
   public function aliasExists($alias, $langcode, $source = NULL) {
+
     // Lookup for the given domain only.
     $domain = $this->getCurrentDomainId();
     if (!is_null($domain)) {
-      $single = $this->aliasExistsByDomain($alias, $langcode, $source, $domain);
-      $all = $this->aliasExistsByDomain($alias, $langcode, $source, self::ALL_AFFILIATES);
-      return $single ? $single : $all;
+      return $this->aliasExistsByDomain($alias, $langcode, $source, $domain);
     }
+
     return FALSE;
   }
 
