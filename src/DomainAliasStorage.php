@@ -141,11 +141,8 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
       $domain_id = $domain->getDomainId();
       $found = FALSE;
       foreach ($existing_aliases as $existing_alias) {
-        // Note that domain_id is an integer, so we can use equality operator rather than
-        // identical operator for comparison, and thus avoid casting.
         if ($existing_alias->domain_id == $domain_id) {
           // There is already an alias record, so update it
-          dsm('Updated ' . $existing_alias->pid);
           if (!$this->saveDomainAlias($source, $alias, $langcode, $entity, $domain_id, $existing_alias->pid)) {
             $save_result = FALSE;
           }
@@ -156,7 +153,6 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
       // We did not find any alias, so insert a new alias
       if (!$found) {
         // Create a new record.
-        dsm('Inserted record for  ' . $domain->get('domain_id'));
         if (!$this->saveDomainAlias($source, $alias, $langcode, $entity, $domain_id)) {
           $save_result = FALSE;
         }
@@ -174,7 +170,6 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
         }
       }
       if (!$found) {
-        dsm('Deleted ' . $existing_alias->pid);
         if (!$this->delete(['pid' => $existing_alias->pid])) {
           $save_result = FALSE;
         }
