@@ -12,3 +12,7 @@ services:
       - [setDomainAccessManager, ['@domain_access.manager']]
       - [setDomainNegotiator, ['@domain.negotiator']]
       - [setEntityTypeManager, ['@entity_type.manager']]
+  domain_path.event_subscriber:
+    class: Drupal\domain_path\EventSubscriber
+    tags:
+      - { name: event_subscriber }
