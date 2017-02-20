@@ -2,12 +2,13 @@
 namespace Drupal\domain_path;
 
 use Drupal\pathauto\PathautoItem as BasePathautoItem;
+use Drupal\pathauto\PathautoState;
 
 /**
  * Extends the default PathautoItem implementation.
  */
 class PathautoItem extends BasePathautoItem {
-
+  use PathStorageTrait;
 
   /**
    * {@inheritdoc}
@@ -16,7 +17,7 @@ class PathautoItem extends BasePathautoItem {
     // Only allow the parent implementation to act if pathauto will not create
     // an alias.
     if ($this->pathauto == PathautoState::SKIP) {
-      PathItem::postSave($update);
+      $this->saveAliases($update);
     }
     $this->get('pathauto')->persist();
   }

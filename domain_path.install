@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * @file
+ * Domain path installation.
+ */
+use Drupal\domain_path\DomainAliasStorage;
+
+/**
+ * Implemements hook_schema().
+ */
+function domain_path_schema() {
+  // Delete table;
+  $schema[DomainAliasStorage::TABLE] = \Drupal::service('path.alias_storage')->schemaDefinition();
+
+  return $schema;
+}
