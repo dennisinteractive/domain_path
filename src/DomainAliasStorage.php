@@ -138,7 +138,6 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
     // Load all existing aliases for this entity.
     $existing_aliases = $this->loadMultiple(['source' => $source]);
 
-
     // Alias must be present for all entity_domains.
     foreach ($entity_domains as $domain) {
       $domain_id = $domain->getDomainId();
@@ -358,6 +357,38 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
       $this->catchException($e);
       return FALSE;
     }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function delete($conditions) {
+    // Our aliases are not language aware, so remove any such condition.
+    unset($conditions['langcode']);
+
+    \Drupal::logger('alias_storage')->notice('Deleted alias with UUID: @uuid ', array('@uuid' => serialize(array_keys($conditions))));
+    $path = $this->load($conditions);
+    $query = $this->connection->delete(static::TABLE);
+    foreach ($conditions as $field => $value) {
+      if ($field == 'source' || $field == 'alias') {
+        // Use LIKE for case-insensitive matching.
+        $query->condition($field, $this->connection->escapeLike($value), 'LIKE');
+      }
+      else {
+        $query->condition($field, $value);
+      }
+    }
+    try {
+      $deleted = $query->execute();
+    }
+    catch (\Exception $e) {
+      $this->catchException($e);
+      $deleted = FALSE;
+    }
+    // @todo Switch to using an event for this instead of a hook.
+    $this->moduleHandler->invokeAll('path_delete', array($path));
+    Cache::invalidateTags(['route_match']);
+    return $deleted;
   }
 
   /**

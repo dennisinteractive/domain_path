@@ -17,26 +17,29 @@ trait PathWidgetValidatorTrait {
     if (!empty($alias)) {
       $form_state->setValueForElement($element['alias'], $alias);
 
-      // If 'all affiliates' is checked, check for existence of alias on other 'all affiliates' nodes.
+      // If 'all affiliates' is checked, whether this alias is already in use.
       $allAffiliates = $form_state->getValue('field_domain_all_affiliates');
       if (!empty($allAffiliates['value'])) {
-        // Validate that the submitted alias does not exist yet.
-        $is_exists = \Drupal::service('path.alias_storage')
-          ->setAllAffiliates()
-          ->aliasExists($alias, $element['langcode']['#value'], $element['source']['#value']);
-        if ($is_exists) {
-          $form_state->setError($element, t('The alias is already in use by content available to all affiliates.'));
+        // Validate that the submitted alias does not exist on any domains.
+        $domains = \Drupal::service('domain.loader')->loadMultiple();
+        foreach ($domains as $domain) {
+          $domain_id = $domain->getDomainId();
+          $is_exists = \Drupal::service('path.alias_storage')
+            ->aliasExistsByDomain($alias, $element['langcode']['#value'], $element['source']['#value'], $domain_id);
+          if ($is_exists) {
+            $form_state->setError($element, t('The alias is already in use by content available to all affiliates.'));
+            break;
+          }
         }
       }
-      else if ($domainValues = $form_state->getValue(DOMAIN_ACCESS_FIELD)) {
+      else if ($domains = $form_state->getValue(DOMAIN_ACCESS_FIELD)) {
         // If domains are checked, check existence of alias on each domain.
-        foreach ($domainValues as $domainValue) {
-          //$domain = \Drupal::service('domain.loader')->load($domainValue['target_id']);
+        foreach ($domains as $domain_id) {
           // Validate that the submitted alias does not exist yet.
           $is_exists = \Drupal::service('path.alias_storage')
-            ->aliasExistsByDomain($alias, $element['langcode']['#value'], $element['source']['#value'], $domainValue);
+            ->aliasExistsByDomain($alias, $element['langcode']['#value'], $element['source']['#value'], $domain_id);
           if ($is_exists) {
-            $form_state->setError($element, t('The alias is already in use on :domain.', [':domain' => $domainValue]));
+            $form_state->setError($element, t('The alias is already in use on :domain.', [':domain' => $domain_id]));
           }
         }
       }
