@@ -332,9 +332,6 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
    * {@inheritdoc}
    */
   public function load($conditions) {
-    // Our aliases are not language aware, so remove any such condition.
-    unset($conditions['langcode']);
-
     $select = $this->connection->select(static::TABLE);
     foreach ($conditions as $field => $value) {
       if ($field == 'source' || $field == 'alias') {
@@ -363,9 +360,6 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
    * {@inheritdoc}
    */
   public function delete($conditions) {
-    // Our aliases are not language aware, so remove any such condition.
-    unset($conditions['langcode']);
-
     \Drupal::logger('alias_storage')->notice('Deleted alias with UUID: @uuid ', array('@uuid' => serialize(array_keys($conditions))));
     $path = $this->load($conditions);
     $query = $this->connection->delete(static::TABLE);
