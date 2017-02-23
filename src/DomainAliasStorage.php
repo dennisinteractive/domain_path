@@ -599,7 +599,7 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
           'type' => 'varchar',
           'length' => 12,
           'not null' => TRUE,
-          'default' => 'und',
+          'default' => '',
         ],
         'entity_type' => [
           'description' => 'Entity type',
