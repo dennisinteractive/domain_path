@@ -13,6 +13,7 @@ use Drupal\Core\Path\AliasStorage as CoreAliasStorage;
 use Drupal\Core\Path\AliasStorageInterface;
 use Drupal\domain\DomainNegotiatorInterface;
 use Drupal\domain_access\DomainAccessManagerInterface;
+use Drupal\domain\DomainInterface;
 
 /**
  * Overrides AliasStorage.
@@ -116,34 +117,41 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
   public function save($source, $alias, $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED, $pid = NULL) {
     $save_result = TRUE;
     if (empty($source) || empty($alias)) {
-      return NULL;
+      return FALSE;
     }
 
-    // Get the entity for this alias using the source
+    // Get the entity for this alias using the source.
     $entity = $this->entityFromSource($source);
     if (empty($entity)) {
       \Drupal::logger('domain_path')->notice('Unable to load Entity for source: @source', array('@source' => $source));
       return FALSE;
     }
 
-    // Check that the loaded entity has domain access enabled and configured.
+    // Get the domains this entity is enabled and configured on.
     $entity_domains = $this->getEntityDomains($entity);
     if (empty($entity_domains)) {
-      // Either domain access is not enabled, or not configured
       \Drupal::logger('domain_path')
         ->notice('Domain access not configured for Entity for source: @source', array('@source' => $source));
       return FALSE;
     }
 
-    // Load all existing aliases for this entity.
-    $existing_aliases = $this->loadMultiple(['source' => $source]);
+    // Get the entire pid record.
+    $old_alias_record = $pid ? $this->load(['pid' => $pid]) : NULL;
+    // Get all the alias records that are similar to the current alias.
+    $pids = $this->lookupSimilarAliases($old_alias_record);
+    $changed = $this->entityAliasesHaveChanged($entity, $pids);
+
+    // If nothing has changed let's just give up now.
+    if (!$this->entityAliasesHaveChanged($entity, $pids) && $old_alias_record && $old_alias_record['alias'] === $alias) {
+      return FALSE;
+    }
 
     // Alias must be present for all entity_domains.
     foreach ($entity_domains as $domain) {
       $domain_id = $domain->getDomainId();
-      if (isset($existing_aliases[$domain_id])) {
-        // There is already an alias record, so update it
-        if (!$this->saveDomainAlias($source, $alias, $langcode, $entity, $domain_id, $existing_aliases[$domain_id]->pid)) {
+      if (isset($pids[$domain_id])) {
+        // There is already an alias record, so update it.
+        if (!$this->saveDomainAlias($source, $alias, $langcode, $entity, $domain_id, $pids[$domain_id]->pid)) {
           $save_result = FALSE;
           \Drupal::logger('domain_path')
             ->notice('Unable to update alias for source: @source', array('@source' => $source));
@@ -159,7 +167,10 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
       }
     }
 
-    // Aliases must not be present for any other domains
+    // Load all existing aliases for this entity.
+    $existing_aliases = $this->loadMultiple(['source' => $source]);
+
+    // Aliases must not be present for any other domains.
     foreach ($existing_aliases as $domain_id => $existing_alias) {
       $found = FALSE;
       foreach ($entity_domains as $domain) {
@@ -264,8 +275,11 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
   /**
    * Load an entity from source string, eg. /node/1
    *
-   * @param $source
+   * @param string $source
+   *   The interal path to lookup aliases for.
+   *
    * @return bool|EntityInterface|null
+   *   The entity object that we're saving an alias for.
    */
   public function entityFromSource($source) {
     // Try load the entity specified by $source.
@@ -297,8 +311,11 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
   /**
    * Get all Domains that an entity has access too.
    *
-   * @param $entity
-   * @return mixed
+   * @param EntityInterface $entity
+   *   The entity object to get domains for.
+   *
+   * @return DomainInterface
+   *   The Domain entities or null if none found.
    */
   public function getEntityDomains($entity) {
     // Check the 'All Affiliates' field
@@ -313,19 +330,55 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
 
   /**
    * Check if the entity's aliases need updating.
+   *
+   * @param EntityInterface $entity
+   *   The entity object to check.
+   * @param string $source
+   *   The interal path to lookup aliases for.
+   *
+   * @return bool
+   *   True if the aliases have been updated.
    */
-  public function entityAliasesHaveChanged($entity, $source) {
+  public function entityAliasesHaveChanged($entity, $pids = NULL) {
+    if (empty($pids)) {
+      return FALSE;
+    }
     $entity_domains = $this->domainAccessManager->getAccessValues($entity);
     $updated = $entity_domains ? array_values($entity_domains) : [];
 
-    $rows = $this->loadMultiple(['source' => $source]);
-    $pids = array_keys($rows);
-    $old = array_diff($pids, $updated);
-    $new = array_diff($updated, $pids);
+    $existing = array_keys($pids);
+    $old = array_diff($existing, $updated);
+    $new = array_diff($updated, $existing);
     if (count($old) > 0 || count($new) > 0) {
       return TRUE;
     }
     return FALSE;
+  }
+
+  /**
+   * Helper function to get similar alias records that vary only vary by domain.
+   *
+   * This makes sure we only manipulate the alias record
+   * that is directly relevant to this update.
+   *
+   * @param object $alias
+   *   The old alias record to lookup by.
+   *
+   * @return array
+   *   An array of objects containing the pid values keyed by domain id.
+   */
+  public function lookupSimilarAliases($alias) {
+    if ($alias) {
+      $pids = $this->loadMultiple([
+        'alias' => $alias['alias'],
+        'source' => $alias['source'],
+        'entity_type' => $alias['entity_type'],
+        'entity_id' => $alias['entity_id'],
+        'langcode' => $alias['langcode'],
+      ]);
+    }
+
+    return $pids ?: [];
   }
 
   /**
