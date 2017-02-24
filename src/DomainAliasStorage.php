@@ -139,7 +139,6 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
     $old_alias_record = $pid ? $this->load(['pid' => $pid]) : NULL;
     // Get all the alias records that are similar to the current alias.
     $pids = $this->lookupSimilarAliases($old_alias_record);
-    $changed = $this->entityAliasesHaveChanged($entity, $pids);
 
     // If nothing has changed let's just give up now.
     if (!$this->entityAliasesHaveChanged($entity, $pids) && $old_alias_record && $old_alias_record['alias'] === $alias) {
@@ -378,7 +377,7 @@ class DomainAliasStorage extends CoreAliasStorage implements DomainAliasStorageI
       ]);
     }
 
-    return $pids ?: [];
+    return isset($pids) ? $pids : [];
   }
 
   /**
