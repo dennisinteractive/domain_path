@@ -32,14 +32,16 @@ trait PathWidgetValidatorTrait {
           }
         }
       }
-      else if ($domains = $form_state->getValue(DOMAIN_ACCESS_FIELD)) {
+      else if ($domain_values = $form_state->getValue(DOMAIN_ACCESS_FIELD)) {
         // If domains are checked, check existence of alias on each domain.
-        foreach ($domains as $domain_id) {
-          // Validate that the submitted alias does not exist yet.
-          $is_exists = \Drupal::service('path.alias_storage')
-            ->aliasExistsByDomain($alias, $element['langcode']['#value'], $element['source']['#value'], $domain_id);
-          if ($is_exists) {
-            $form_state->setError($element, t('The alias is already in use on :domain.', [':domain' => $domain_id]));
+        foreach ($domain_values as $domain_value) {
+          if ($domain = \Drupal::service('domain.loader')->load($domain_value['target_id'])) {
+            // Validate that the submitted alias does not exist yet.
+            $is_exists = \Drupal::service('path.alias_storage')
+              ->aliasExistsByDomain($alias, $element['langcode']['#value'], $element['source']['#value'], $domain->getDomainId());
+            if ($is_exists) {
+              $form_state->setError($element, t('The alias is already in use on :domain.', [':domain' => $domain->get('name')]));
+            }
           }
         }
       }
