@@ -83,6 +83,26 @@ class DomainPathSettingsForm extends ConfigFormBase {
       }
     }
 
+    $form['display_domain'] = [
+      '#type' => 'details',
+      '#open' => TRUE,
+      '#title' => $this->t('Domain path alias title'),
+    ];
+
+    $options = [
+      'name' => $this->t('The domain display name'),
+      'hostname' => $this->t('The raw hostname'),
+      'url' => $this->t('The domain base URL'),
+    ];
+
+    $form['display_domain']['alias_title'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Title'),
+      '#default_value' => !empty($config->get('alias_title')) ? $config->get('alias_title') : 'name',
+      '#options' => $options,
+      '#description' => $this->t('Select the text to display for each field in entity edition.'),
+    ];
+
     return parent::buildForm($form, $form_state);
   }
 
@@ -92,6 +112,7 @@ class DomainPathSettingsForm extends ConfigFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->config('domain_path.settings')
       ->set('entity_types', $form_state->getValue('entity_types'))
+      ->set('alias_title', $form_state->getValue('alias_title'))
       ->save();
 
     parent::submitForm($form, $form_state);

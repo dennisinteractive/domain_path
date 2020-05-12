@@ -71,6 +71,7 @@ class DomainPathHelper {
    */
   public function alterEntityForm(&$form, FormStateInterface $form_state, $entity) {
     $domains = $this->entityTypeManager->getStorage('domain')->loadMultipleSorted();
+    $config = \Drupal::config('domain_path.settings');
     // Just exit if domain paths is not enabled for this entity.
     if (!$this->domainPathsIsEnabled($entity) || !$domains) {
       return $form;
@@ -123,9 +124,17 @@ class DomainPathHelper {
         $show_delete = TRUE;
       }
 
+      $label = $domain->label();
+      if ($config->get('alias_title') == 'hostname') {
+        $label = $domain->getHostname();
+      }
+      elseif ($config->get('alias_title') == 'url') {
+        $label = $domain->getPath();
+      }
+
       $form['path']['widget'][0]['domain_path'][$domain_id] = [
         '#type' => 'textfield',
-        '#title' => Html::escape(rtrim($domain->getPath(), '/')),
+        '#title' => Html::escape(rtrim($label, '/')),
         '#default_value' => $path ? $path : $default,
         '#access' => $this->accountManager->hasPermission('edit domain path entity'),
         '#states' => [
