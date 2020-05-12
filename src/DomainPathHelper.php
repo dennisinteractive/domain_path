@@ -176,11 +176,6 @@ class DomainPathHelper {
     $path_values = $form_state->getValue('path');
     $domain_path_values = $path_values[0]['domain_path'];
 
-    if (!empty($path_values[0]['pathauto'])) {
-      // Skip validation if checked automatically generate alias.
-      return;
-    }
-
     // If we're just deleting the domain paths we don't have to validate
     // anything.
     if (!empty($domain_path_values['domain_path_delete'])) {
