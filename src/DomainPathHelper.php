@@ -83,12 +83,12 @@ class DomainPathHelper {
     $default = '';
 
     // Container for domain path fields
-    $form['path']['domain_path'] = [
+    $form['path']['widget'][0]['domain_path'] = [
       '#tree' => TRUE,
       '#type' => 'details',
       '#title' => $this->t('Domain-specific paths'),
       '#description' => $this->t('Override the default URL alias (above) for individual domains.'),
-      '#group' => 'path_settings',
+      // '#group' => 'path_settings',
       '#weight' => 110,
       '#open' => TRUE,
       '#access' => $this->accountManager->hasPermission('edit domain path entity'),
@@ -96,7 +96,7 @@ class DomainPathHelper {
 
     // Add an option to delete all domain paths. This is just for convenience
     // so the user doesn't have to manually remove the paths from each domain.
-    $form['path']['domain_path']['domain_path_delete'] = [
+    $form['path']['widget'][0]['domain_path']['domain_path_delete'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Delete domain-specific aliases'),
       '#default_value' => FALSE,
@@ -123,14 +123,14 @@ class DomainPathHelper {
         $show_delete = TRUE;
       }
 
-      $form['path']['domain_path'][$domain_id] = [
+      $form['path']['widget'][0]['domain_path'][$domain_id] = [
         '#type' => 'textfield',
         '#title' => Html::escape(rtrim($domain->getPath(), '/')),
         '#default_value' => $path ? $path : $default,
         '#access' => $this->accountManager->hasPermission('edit domain path entity'),
         '#states' => [
           'disabled' => [
-            'input[name="domain_path[domain_path_delete]"]' => ['checked' => TRUE],
+            'input[name="path[0][domain_path][domain_path_delete]"]' => ['checked' => TRUE],
           ]
         ],
       ];
@@ -139,12 +139,12 @@ class DomainPathHelper {
       // it's checked. e.g. on the node form, we only show the domain path
       // field for domains we're publishing to
       if (!empty($form['field_domain_access']['widget']['#options'][$domain_id])) {
-        $form['path']['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_access[' . $domain_id . ']"]'] = ['checked' => FALSE];
-        $form['path']['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_all_affiliates[value]"]'] = ['checked' => FALSE];
+        $form['path']['widget'][0]['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_access[' . $domain_id . ']"]'] = ['checked' => FALSE];
+        $form['path']['widget'][0]['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_all_affiliates[value]"]'] = ['checked' => FALSE];
       }
     }
 
-    $form['path']['domain_path']['domain_path_delete']['#access'] = $show_delete;
+    $form['path']['widget'][0]['domain_path']['domain_path_delete']['#access'] = $show_delete;
 
     // Add our validation and submit handlers.
     $form['#validate'][] = [$this, 'validateEntityForm'];
@@ -164,11 +164,6 @@ class DomainPathHelper {
   /**
    * Validation handler the domain paths element on the entity form.
    *
-   * This is called from a custom validation handler in domain_path.module. We
-   * do that instead of just declaring this as static and using it directly as
-   * a validation handler so that our dependencies are injected when the
-   * service is loaded via \Drupal::service().
-   *
    * @param array $form
    *   The form array.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
@@ -179,7 +174,7 @@ class DomainPathHelper {
     $entity = $form_state->getFormObject()->getEntity();
     $domain_path_storage = \Drupal::service('entity_type.manager')->getStorage('domain_path');
     $path_values = $form_state->getValue('path');
-    $domain_path_values = $form_state->getValue('domain_path');
+    $domain_path_values = $path_values[0]['domain_path'];
 
     if (!empty($path_values[0]['pathauto'])) {
       // Skip validation if checked automatically generate alias.
@@ -216,7 +211,7 @@ class DomainPathHelper {
         continue;
       }
       if (!empty($path) && $path == $alias) {
-        $form_state->setError($form['path']['domain_path'][$domain_id], t('Domain path "%path" matches the default path alias. You may leave the element blank.', ['%path' => $path]));
+        $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id], t('Domain path "%path" matches the default path alias. You may leave the element blank.', ['%path' => $path]));
       }
       elseif (!empty($path)) {
         // Trim slashes and whitespace from end of path value.
@@ -224,7 +219,7 @@ class DomainPathHelper {
 
         // Check that the paths start with a slash.
         if ($path_value && $path_value[0] !== '/') {
-          $form_state->setError($form['path']['domain_path'][$domain_id], t('Domain path "%path" needs to start with a slash.', ['%path' => $path]));
+          $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id], t('Domain path "%path" needs to start with a slash.', ['%path' => $path]));
         }
 
         // Check for duplicates.
@@ -236,7 +231,7 @@ class DomainPathHelper {
         }
         $result = $entity_query->execute();
         if ($result) {
-          $form_state->setError($form['path']['domain_path'][$domain_id], t('Domain path %path matches an existing domain path alias', ['%path' => $path]));
+          $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id], t('Domain path %path matches an existing domain path alias', ['%path' => $path]));
         }
       }
     }
@@ -244,11 +239,6 @@ class DomainPathHelper {
 
   /**
    * Submit handler for the domain paths element on the entity form.
-   *
-   * This is called from a custom submit handler in domain_path.module. We
-   * do that instead of just declaring this as static and using it directly as
-   * a submit handler so that our dependencies are injected when the
-   * service is loaded via \Drupal::service().
    *
    * @param array $form
    *   The form array.
@@ -265,7 +255,8 @@ class DomainPathHelper {
       'source' => $entity_system_path,
       'language' => $entity->language()->getId(),
     ];
-    $domain_path_values =  $form_state->getValue('domain_path');
+    $path_values = $form_state->getValue('path');
+    $domain_path_values = $path_values[0]['domain_path'];
     $domain_path_storage = $this->entityTypeManager->getStorage('domain_path');
 
     // Check domain access settings if they are on the form.
