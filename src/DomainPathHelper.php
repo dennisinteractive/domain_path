@@ -148,8 +148,11 @@ class DomainPathHelper {
       // it's checked. e.g. on the node form, we only show the domain path
       // field for domains we're publishing to
       if (!empty($form['field_domain_access']['widget']['#options'][$domain_id])) {
-        $form['path']['widget'][0]['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_access[' . $domain_id . ']"]'] = ['checked' => FALSE];
-        $form['path']['widget'][0]['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_all_affiliates[value]"]'] = ['checked' => FALSE];
+        $form['path']['widget'][0]['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_access[' . $domain_id . ']"]'] = ['unchecked' => TRUE];
+        $form['path']['widget'][0]['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_all_affiliates[value]"]'] = ['unchecked' => TRUE];
+      }
+      else if (!empty($form['field_domain_access']['widget']['#options'])) {
+        $form['path']['widget'][0]['domain_path'][$domain_id]['#access'] = FALSE;
       }
     }
 
