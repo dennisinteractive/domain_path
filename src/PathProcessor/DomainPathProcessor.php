@@ -2,11 +2,14 @@
 
 namespace Drupal\domain_path\PathProcessor;
 
+use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\PathProcessor\InboundPathProcessorInterface;
 use Drupal\Core\PathProcessor\OutboundPathProcessorInterface;
+use Drupal\Core\TypedData\TranslatableInterface;
+use Drupal\domain\Entity\Domain;
 use Symfony\Component\HttpFoundation\Request;
 use Drupal\domain\DomainNegotiatorInterface;
 use Drupal\Core\Path\AliasManagerInterface;
@@ -99,10 +102,37 @@ class DomainPathProcessor implements InboundPathProcessorInterface, OutboundPath
       // It's possible the path module has aliased this path already so we're
       // going to revert that.
       $unaliased_path = $this->aliasManager->getPathByAlias($path);
+      if (isset($options["language"])) {
+        $language = $options["language"];
+      }
+      else {
+        $language = $this->languageManager->getCurrentLanguage();
+      }
+
+      // If an entity is not available in current active domain we should change the active domain.
+      if (!empty($options['entity'])) {
+        $entity = $options['entity'];
+        $langcode = $language->getId();
+
+        if ($entity instanceof TranslatableInterface && $entity->hasTranslation($langcode)) {
+          $entity = $entity->getTranslation($langcode);
+        }
+
+        if ($entity instanceof ContentEntityBase && $entity->hasField('field_domain_access')) {
+          $entityDomainsList = \Drupal::service('domain.element_manager')->getFieldValues($entity, 'field_domain_access');
+          if (!empty($entityDomainsList)) {
+            $entityDomainsIdList = array_keys($entityDomainsList);
+            if (!in_array($active_domain->id(), $entityDomainsIdList)) {
+              $active_domain = Domain::load($entityDomainsIdList[0]);
+            }
+          }
+        }
+      }
+
       $properties = [
         'source' => $unaliased_path,
         'domain_id' => $active_domain->id(),
-        'language' => $this->languageManager->getCurrentLanguage()->getId(),
+        'language' => $language->getId(),
       ];
       $domain_paths = $this->entityTypeManager->getStorage('domain_path')->loadByProperties($properties);
       if (empty($domain_paths)) {

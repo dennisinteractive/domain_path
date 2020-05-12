@@ -4,3 +4,5 @@ Domain Path 8.x-1.0-beta3 , XXXX-XX-XX
 #3009372: Domain path fieldset not in advanced node sidebar after upgrade to Drupal 8.6.x
 #3121647: Domain specific path validation does not work when pathauto autogenerate enabled
 #3121607: Add domain label title configuration options like domain navigation block does
+#3122607: processOutbound is generating wrong path when entity is not available on current domain
+#3128283: Respect url language options
