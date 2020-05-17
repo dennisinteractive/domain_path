@@ -116,10 +116,15 @@ class DomainPathForm extends ContentEntityForm {
       $form_state->setErrorByName('alias', $this->t('Domain path "%alias" needs to start with a slash.', ['%alias' => $alias_check]));
     }
 
+    /** @var \Drupal\domain_path\Entity\DomainPath $current_domain_path */
+    $current_domain_path = $form_state->getformObject()->getEntity();
+
     if ($domain_path_entity_data = $this->entityTypeManager->getStorage('domain_path')->loadByProperties(['alias' => $alias])) {
       foreach ($domain_path_entity_data as $domain_path_entity) {
         $check_domain_id = $domain_path_entity->get('domain_id')->target_id;
-        if ($check_domain_id == $domain_id) {
+        $is_same = $current_domain_path && $domain_path_entity->id() == $current_domain_path->id();
+
+        if ($check_domain_id == $domain_id && !$is_same) {
           $domain_path = $domains[$domain_id]->getPath();
           $form_state->setErrorByName('alias', $this->t('Domain path %path matches an existing domain path alias for %domain_path.', ['%path' => $alias, '%domain_path' => $domain_path]));
         }
