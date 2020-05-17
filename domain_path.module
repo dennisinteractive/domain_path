@@ -27,7 +27,7 @@ function domain_path_form_alter(&$form, &$form_state, $form_id) {
  * Implements hook_entity_delete().
  */
 function domain_path_entity_delete(EntityInterface $entity) {
-  \Drupal::service('domain_path.helper')->deleteEntityDomainPaths($entity);
+  \Drupal::service('domain_path.helper')->deleteEntityDomainPaths($entity, TRUE);
 }
 
 /**

@@ -1,3 +1,7 @@
+Domain Path 8.x-1.0-beta4 , XXXX-XX-XX
+--------------------------------------
+#3136977: When deleting an entity, translated domain paths are not deleted
+
 Domain Path 8.x-1.0-beta3 , 2020-05-12
 --------------------------------------
 #2976931: 'View' permission check name doesn't match permission definition

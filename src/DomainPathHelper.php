@@ -334,12 +334,14 @@ class DomainPathHelper {
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *   The entity object.
    */
-  public function deleteEntityDomainPaths(EntityInterface $entity) {
+  public function deleteEntityDomainPaths(EntityInterface $entity, $delete_all_translations = FALSE) {
     if ($this->domainPathsIsEnabled($entity)) {
       $properties_map = [
         'source' => '/' . $entity->toUrl()->getInternalPath(),
-        'language' => $entity->language()->getId(),
       ];
+      if (!$delete_all_translations) {
+        $properties_map['language'] = $entity->language()->getId();
+      }
       $domain_paths = $this->entityTypeManager
         ->getStorage('domain_path')
         ->loadByProperties($properties_map);
