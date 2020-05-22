@@ -12,6 +12,7 @@ use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
+use Drupal\domain\DomainInterface;
 
 class DomainPathHelper {
 
@@ -394,6 +395,18 @@ class DomainPathHelper {
       $domain_paths = $this->entityTypeManager
         ->getStorage('domain_path')
         ->loadByProperties($properties_map);
+      if ($domain_paths) {
+        foreach ($domain_paths as $domain_path) {
+          $domain_path->delete();
+        }
+      }
+    }
+
+    // Delete domain paths on domain delete.
+    if ($entity instanceof DomainInterface) {
+      $domain_paths = $this->entityTypeManager
+        ->getStorage('domain_path')
+        ->loadByProperties(['domain_id' => $entity->id()]);
       if ($domain_paths) {
         foreach ($domain_paths as $domain_path) {
           $domain_path->delete();
