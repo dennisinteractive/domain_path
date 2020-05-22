@@ -1,4 +1,4 @@
-Domain Path 8.x-1.0-beta4 , XXXX-XX-XX
+Domain Path 8.x-1.0-beta4 , 2020-05-22
 --------------------------------------
 #3136977: When deleting an entity, translated domain paths are not deleted
 #3112534: Wrong validation on edit (Domain path matches an existing domain path alias...)
