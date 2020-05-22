@@ -5,6 +5,7 @@ Domain Path 8.x-1.0-beta4 , XXXX-XX-XX
 #3137375: Remove deprecated code on DomainPathForm
 #3131284: Support pathauto for domain
 #3138970: Delete domain paths on domain delete
+#3040648: Unsaved Node Preview Causes fatal error.
 
 Domain Path 8.x-1.0-beta3 , 2020-05-12
 --------------------------------------

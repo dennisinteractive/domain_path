@@ -194,10 +194,8 @@ class DomainPathHelper {
     // Add our validation and submit handlers.
     $form['#validate'][] = [$this, 'validateEntityForm'];
     if (!empty($form['actions'])) {
-      foreach (array_keys($form['actions']) as $action) {
-        if (isset($form['actions'][$action]['#submit'])) {
-          $form['actions'][$action]['#submit'][] = [$this, 'submitEntityForm'];
-        }
+      if (array_key_exists('submit', $form['actions'])) {
+        $form['actions']['submit']['#submit'][] = [$this, 'submitEntityForm'];
       }
     }
     else {
