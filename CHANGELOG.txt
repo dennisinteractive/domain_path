@@ -2,6 +2,7 @@ Domain Path 8.x-1.0-beta4 , XXXX-XX-XX
 --------------------------------------
 #3136977: When deleting an entity, translated domain paths are not deleted
 #3112534: Wrong validation on edit (Domain path matches an existing domain path alias...)
+#3137375: Remove deprecated code on DomainPathForm
 
 Domain Path 8.x-1.0-beta3 , 2020-05-12
 --------------------------------------
