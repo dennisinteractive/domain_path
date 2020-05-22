@@ -1,7 +1,7 @@
 services:
   domain_path.path_processor:
     class: Drupal\domain_path\PathProcessor\DomainPathProcessor
-    arguments: ['@language_manager', '@entity_type.manager', '@path.alias_manager', '@domain.negotiator']
+    arguments: ['@language_manager', '@entity_type.manager', '@path_alias.manager', '@domain.negotiator']
     tags:
       # Priority is very important here. The inbound processor needs to happen
       # BEFORE the path module alias processor, and the outbound needs to happen
@@ -10,4 +10,4 @@ services:
       - { name: path_processor_outbound, priority: 200 }
   domain_path.helper:
     class: Drupal\domain_path\DomainPathHelper
-    arguments: ['@current_user', '@entity_type.manager', '@path.alias_manager', '@config.factory']
+    arguments: ['@current_user', '@entity_type.manager', '@path_alias.manager', '@config.factory', '@module_handler']

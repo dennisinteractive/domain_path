@@ -4,9 +4,10 @@ namespace Drupal\domain_path;
 
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Path\AliasManagerInterface;
+use Drupal\path_alias\AliasManagerInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
@@ -28,7 +29,7 @@ class DomainPathHelper {
   protected $entityTypeManager;
 
   /**
-   * @var \Drupal\Core\Path\AliasManagerInterface
+   * @var \Drupal\path_alias\AliasManagerInterface
    */
   protected $aliasManager;
 
@@ -38,21 +39,29 @@ class DomainPathHelper {
   protected $config;
 
   /**
+   * The module handler.
+   *
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected $moduleHandler;
+
+  /**
    * DomainPathHelper constructor.
    *
    * @param \Drupal\Core\Session\AccountInterface $account_manager
    *   The account manager.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity type manager.
-   * @param \Drupal\Core\Path\AliasManagerInterface $alias_manager
+   * @param \Drupal\path_alias\AliasManagerInterface $alias_manager
    *   The alias manager.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
    *   The configuration factory.
    */
-  public function __construct(AccountInterface $account_manager, EntityTypeManagerInterface $entity_type_manager, AliasManagerInterface $alias_manager, ConfigFactoryInterface $config_factory) {
+  public function __construct(AccountInterface $account_manager, EntityTypeManagerInterface $entity_type_manager, AliasManagerInterface $alias_manager, ConfigFactoryInterface $config_factory, ModuleHandlerInterface $module_handler) {
     $this->accountManager = $account_manager;
     $this->entityTypeManager = $entity_type_manager;
     $this->aliasManager = $alias_manager;
+    $this->moduleHandler = $module_handler;
     $this->config = $config_factory->get('domain_path.settings');
   }
 
@@ -105,6 +114,10 @@ class DomainPathHelper {
 
     // Add a domain path field for each domain.
     foreach ($domains as $domain_id => $domain) {
+      $form['path']['widget'][0]['domain_path'][$domain_id] = [
+        '#type' => 'container'
+      ];
+
       // Gather the existing domain path.
       $path = FALSE;
       if ($entity_id) {
@@ -132,7 +145,16 @@ class DomainPathHelper {
         $label = $domain->getPath();
       }
 
-      $form['path']['widget'][0]['domain_path'][$domain_id] = [
+      if ($this->moduleHandler->moduleExists('domain_path_pathauto')) {
+        $form['path']['widget'][0]['domain_path'][$domain_id]['pathauto'] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Generate automatic URL alias for @domain', ['@domain' =>  Html::escape(rtrim($domain->getPath(), '/'))]),
+          '#default_value' => \Drupal::service('domain_path_pathauto.generator')->domainPathPathautoGenerationIsEnabled($entity, $domain->id()),
+          '#weight' => -1,
+        ];
+      }
+
+      $form['path']['widget'][0]['domain_path'][$domain_id]['path'] = [
         '#type' => 'textfield',
         '#title' => Html::escape(rtrim($label, '/')),
         '#default_value' => $path ? $path : $default,
@@ -143,6 +165,16 @@ class DomainPathHelper {
           ]
         ],
       ];
+
+      if($this->moduleHandler->moduleExists('domain_path_pathauto')) {
+        $form['path']['widget'][0]['domain_path'][$domain_id]['path']['#states'] = [
+          'disabled' => [
+            ['input[name="path[0][domain_path][domain_path_delete]"]' => ['checked' => TRUE]],
+            'OR',
+            ['input[name="path[0][domain_path][' . $domain_id . '][pathauto]"]' => ['checked' => TRUE]],
+          ]
+        ];
+      }
 
       // If domain settings are on the page for this domain we only show if
       // it's checked. e.g. on the node form, we only show the domain path
@@ -209,7 +241,7 @@ class DomainPathHelper {
       ? $form_state->getValue('field_domain_all_affiliates')['value'] : TRUE;
 
     // Validate each path value.
-    foreach ($domain_path_values as $domain_id => $path) {
+    foreach ($domain_path_values as $domain_id => $domain_path_data) {
 
       // Don't validate if the domain doesn't have access (we remove aliases
       // for domains that don't have access to this entity).
@@ -217,28 +249,32 @@ class DomainPathHelper {
       if (!$domain_has_access) {
         continue;
       }
-      if (!empty($path) && $path == $alias) {
-        $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id], t('Domain path "%path" matches the default path alias. You may leave the element blank.', ['%path' => $path]));
-      }
-      elseif (!empty($path)) {
-        // Trim slashes and whitespace from end of path value.
-        $path_value = rtrim(trim($path), " \\/");
-
-        // Check that the paths start with a slash.
-        if ($path_value && $path_value[0] !== '/') {
-          $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id], t('Domain path "%path" needs to start with a slash.', ['%path' => $path]));
+      // If domain pathauto is not enabled, validate user entered path.
+      if(!(\Drupal::service('module_handler')->moduleExists('domain_path_pathauto') && $domain_path_data['pathauto'])) {
+        $path = $domain_path_data['path'];
+        if (!empty($path) && $path == $alias) {
+          $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id], t('Domain path "%path" matches the default path alias. You may leave the element blank.', ['%path' => $path]));
         }
+        elseif (!empty($path)) {
+          // Trim slashes and whitespace from end of path value.
+          $path_value = rtrim(trim($path), " \\/");
 
-        // Check for duplicates.
-        $entity_query = $domain_path_storage->getQuery();
-        $entity_query->condition('domain_id', $domain_id)
-          ->condition('alias', $path);
-        if (!$entity->isNew()) {
-          $entity_query->condition('source', '/' . $entity->toUrl()->getInternalPath(), '<>');
-        }
-        $result = $entity_query->execute();
-        if ($result) {
-          $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id], t('Domain path %path matches an existing domain path alias', ['%path' => $path]));
+          // Check that the paths start with a slash.
+          if ($path_value && $path_value[0] !== '/') {
+            $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id]['path'], t('Domain path "%path" needs to start with a slash.', ['%path' => $path]));
+          }
+
+          // Check for duplicates.
+          $entity_query = $domain_path_storage->getQuery();
+          $entity_query->condition('domain_id', $domain_id)
+            ->condition('alias', $path);
+          if (!$entity->isNew()) {
+            $entity_query->condition('source', '/' . $entity->toUrl()->getInternalPath(), '<>');
+          }
+          $result = $entity_query->execute();
+          if ($result) {
+            $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id]['path'], t('Domain path %path matches an existing domain path alias', ['%path' => $path]));
+          }
         }
       }
     }
@@ -280,8 +316,21 @@ class DomainPathHelper {
     // If not set to delete, then save changes.
     if (empty($domain_path_values['domain_path_delete'])) {
       unset($domain_path_values['domain_path_delete']);
-      foreach ($domain_path_values as $domain_id => $alias) {
+      foreach ($domain_path_values as $domain_id => $domain_path_data) {
 
+        $alias = $domain_path_data['path'];
+        if ($this->moduleHandler->moduleExists('domain_path_pathauto')) {
+          $domain_path_pathauto_service = \Drupal::service('domain_path_pathauto.generator');
+          if ($domain_path_data['pathauto']) {
+            // Generate alias using pathauto.
+            $alias = $domain_path_pathauto_service->createEntityAlias($entity, 'return', $domain_id);
+            // Remember pathauto default enabled setting.
+            $domain_path_pathauto_service->setDomainPathPathautoState($entity, $domain_id, TRUE);
+          } else {
+            // Delete pathauto default enabled setting.
+            $domain_path_pathauto_service->deleteDomainPathPathautoState($entity, $domain_id);
+          }
+        }
         // Get the existing domain path for this domain if it exists.
         $properties['domain_id'] = $domain_id;
         $domain_paths = $domain_path_storage->loadByProperties($properties);

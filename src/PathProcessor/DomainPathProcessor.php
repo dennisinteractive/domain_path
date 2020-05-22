@@ -12,7 +12,7 @@ use Drupal\Core\TypedData\TranslatableInterface;
 use Drupal\domain\Entity\Domain;
 use Symfony\Component\HttpFoundation\Request;
 use Drupal\domain\DomainNegotiatorInterface;
-use Drupal\Core\Path\AliasManagerInterface;
+use Drupal\path_alias\AliasManagerInterface;
 
 /**
  * A domain_path processor for inbound and outbound paths.
@@ -44,7 +44,7 @@ class DomainPathProcessor implements InboundPathProcessorInterface, OutboundPath
   /**
    * An alias manager for looking up the system path.
    *
-   * @var \Drupal\Core\Path\AliasManagerInterface
+   * @var \Drupal\path_alias\AliasManagerInterface
    */
   protected $aliasManager;
 
@@ -62,7 +62,7 @@ class DomainPathProcessor implements InboundPathProcessorInterface, OutboundPath
    *   The language manager.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface
    *   The entity type manager.
-   * @param \Drupal\Core\Path\AliasManagerInterface $alias_manager
+   * @param \Drupal\path_alias\AliasManagerInterface $alias_manager
    *   The alias manager.
    * @param \Drupal\domain\DomainNegotiatorInterface $domain_negotiator
    *   The domain negotiator.
