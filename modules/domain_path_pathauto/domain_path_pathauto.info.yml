@@ -1,0 +1,8 @@
+name: Domain Path Pathauto (EXPERIMENTAL)
+type: module
+description: Domain Path Pathauto support
+core_version_requirement: ^8.8 || ^9
+package: Domain
+dependencies:
+  - domain_path
+  - pathauto(>= 1.8)

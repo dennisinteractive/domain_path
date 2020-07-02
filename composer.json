@@ -1,7 +1,0 @@
-{
-  "name": "drupal/domain_path",
-  "type": "drupal-module",
-  "description": "Allow the same path to be used across different domains",
-  "homepage": "https://github.com/dennisinteractive/domain_path",
-  "license": "GPL-2.0+"
-}
