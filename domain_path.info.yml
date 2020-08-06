@@ -3,6 +3,7 @@ description: 'Allows separate path aliases per domain.'
 type: module
 package: Domain
 core_version_requirement: ^8.8 || ^9
+configure: entity.domain_path_settings
 dependencies:
   - path
   - domain
