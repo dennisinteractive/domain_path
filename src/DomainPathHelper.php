@@ -266,16 +266,18 @@ class DomainPathHelper {
           // Check for duplicates.
           $entity_query = $domain_path_storage->getQuery();
           $entity_query->condition('domain_id', $domain_id)
-            ->condition('alias', $path);
+            ->condition('alias', $path_value);
           if (!$entity->isNew()) {
             $entity_query->condition('source', '/' . $entity->toUrl()->getInternalPath(), '<>');
           }
           $result = $entity_query->execute();
           if ($result) {
-            $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id]['path'], t('Domain path %path matches an existing domain path alias', ['%path' => $path]));
+            $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id]['path'], t('Domain path %path matches an existing domain path alias', ['%path' => $path_value]));
           }
         }
+        $domain_path_values[$domain_id] = $path_value;
       }
+      $form_state->setValue('domain_path', $domain_path_values);
     }
   }
 
