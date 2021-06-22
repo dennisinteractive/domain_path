@@ -105,6 +105,19 @@ class DomainPathHelper {
       '#access' => $this->accountManager->hasPermission('edit domain path entity'),
     ];
 
+    if ($config->get('hide_path_alias_ui')) {
+      // Hide the default URL alias for better UI
+      if(isset($form['path']['widget'][0]['pathauto'])) {
+        $form['path']['widget'][0]['pathauto']['#default_value'] = 0;
+        $form['path']['widget'][0]['pathauto']['#access'] = FALSE;
+      }
+      if(isset($form['path']['widget'][0]['alias'])) {
+        $form['path']['widget'][0]['alias']['#default_value'] = '';
+        $form['path']['widget'][0]['alias']['#access'] = FALSE;
+      }
+      unset($form['path']['widget'][0]['domain_path']['#description']);
+    }
+
     // Add an option to delete all domain paths. This is just for convenience
     // so the user doesn't have to manually remove the paths from each domain.
     $form['path']['widget'][0]['domain_path']['domain_path_delete'] = [
