@@ -105,19 +105,6 @@ class DomainPathHelper {
       '#access' => $this->accountManager->hasPermission('edit domain path entity'),
     ];
 
-    if ($config->get('hide_path_alias_ui')) {
-      // Hide the default URL alias for better UI
-      if(isset($form['path']['widget'][0]['pathauto'])) {
-        $form['path']['widget'][0]['pathauto']['#default_value'] = 0;
-        $form['path']['widget'][0]['pathauto']['#access'] = FALSE;
-      }
-      if(isset($form['path']['widget'][0]['alias'])) {
-        $form['path']['widget'][0]['alias']['#default_value'] = '';
-        $form['path']['widget'][0]['alias']['#access'] = FALSE;
-      }
-      unset($form['path']['widget'][0]['domain_path']['#description']);
-    }
-
     // Add an option to delete all domain paths. This is just for convenience
     // so the user doesn't have to manually remove the paths from each domain.
     $form['path']['widget'][0]['domain_path']['domain_path_delete'] = [
@@ -160,12 +147,17 @@ class DomainPathHelper {
       }
 
       if ($this->moduleHandler->moduleExists('domain_path_pathauto')) {
-        $form['path']['widget'][0]['domain_path'][$domain_id]['pathauto'] = [
-          '#type' => 'checkbox',
-          '#title' => $this->t('Generate automatic URL alias for @domain', ['@domain' =>  Html::escape(rtrim($domain->getPath(), '/'))]),
-          '#default_value' => \Drupal::service('domain_path_pathauto.generator')->domainPathPathautoGenerationIsEnabled($entity, $domain->id()),
-          '#weight' => -1,
-        ];
+        //See https://git.drupalcode.org/project/pathauto/-/blob/8.x-1.x/src/PathautoWidget.php#L42
+        if (isset($form['path']['widget'][0]['pathauto'])) {
+          if ($form['path']['widget'][0]['pathauto']['#type'] == 'checkbox') {
+            $form['path']['widget'][0]['domain_path'][$domain_id]['pathauto'] = [
+              '#type' => 'checkbox',
+              '#title' => $this->t('Generate automatic URL alias for @domain', ['@domain' =>  Html::escape(rtrim($domain->getPath(), '/'))]),
+              '#default_value' => $form['path']['widget'][0]['pathauto']['#default_value'],
+              '#weight' => -1,
+            ];
+          }
+        }
       }
 
       $form['path']['widget'][0]['domain_path'][$domain_id]['path'] = [
@@ -188,6 +180,19 @@ class DomainPathHelper {
             ['input[name="path[0][domain_path][' . $domain_id . '][pathauto]"]' => ['checked' => TRUE]],
           ]
         ];
+      }
+
+      if ($config->get('hide_path_alias_ui')) {
+        // Hide the default URL alias for better UI
+        if(isset($form['path']['widget'][0]['pathauto'])) {
+          $form['path']['widget'][0]['pathauto']['#default_value'] = 0;
+          $form['path']['widget'][0]['pathauto']['#access'] = FALSE;
+        }
+        if(isset($form['path']['widget'][0]['alias'])) {
+          $form['path']['widget'][0]['alias']['#default_value'] = '';
+          $form['path']['widget'][0]['alias']['#access'] = FALSE;
+        }
+        unset($form['path']['widget'][0]['domain_path']['#description']);
       }
 
       // If domain settings are on the page for this domain we only show if
