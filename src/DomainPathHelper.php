@@ -247,7 +247,7 @@ class DomainPathHelper {
 
     // Check domain access settings if they are on the form.
     $domain_access = [];
-    if (!empty($form['field_domain_access'])) {
+    if (!empty($form['field_domain_access']) && !empty($form_state->getValue('field_domain_access'))) {
       foreach ($form_state->getValue('field_domain_access') as $item) {
         $domain_access[$item['target_id']] = $item['target_id'];
       }
@@ -323,7 +323,7 @@ class DomainPathHelper {
 
     // Check domain access settings if they are on the form.
     $domain_access = [];
-    if (!empty($form['field_domain_access'])) {
+    if (!empty($form['field_domain_access']) && !empty($form_state->getValue('field_domain_access'))) {
       foreach ($form_state->getValue('field_domain_access') as $item) {
         $domain_access[$item['target_id']] = $item['target_id'];
       }
