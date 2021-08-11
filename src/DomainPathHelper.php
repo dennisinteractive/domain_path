@@ -293,7 +293,9 @@ class DomainPathHelper {
             $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id]['path'], t('Domain path %path matches an existing domain path alias', ['%path' => $path_value]));
           }
         }
-        $domain_path_values[$domain_id] = $path_value;
+        if (isset($path_value)) {
+          $domain_path_values[$domain_id] = $path_value;
+        }
       }
       $form_state->setValue('domain_path', $domain_path_values);
     }
