@@ -9,3 +9,6 @@ domain_path.settings:
     hide_path_alias_ui:
       label: Hide the default URL alias UI
       type: boolean
+    language_method:
+      label: The method of language detection
+      type: string
