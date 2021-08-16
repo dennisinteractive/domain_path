@@ -33,7 +33,11 @@ class DomainPathAliasManager extends AliasManager {
   public function getPathByAlias($alias, $langcode = NULL) {
     $config = \Drupal::config('domain_path.settings');
     $this->method = $config->get('language_method') ? $config->get('language_method') : LanguageInterface::TYPE_CONTENT;
-    if ($active = \Drupal::service('domain.negotiator')->getActiveDomain()) {
+    $active = \Drupal::service('domain.negotiator')->getActiveDomain();
+    if ($active === NULL) {
+      $active = \Drupal::service('domain.negotiator')->getActiveDomain(TRUE);
+    }
+    if ($active) {
       $properties = [
         'alias' => $alias,
         'domain_id' => \Drupal::service('domain.negotiator')->getActiveDomain()->id(),
@@ -60,7 +64,11 @@ class DomainPathAliasManager extends AliasManager {
   public function getAliasByPath($path, $langcode = NULL) {
     $config = \Drupal::config('domain_path.settings');
     $this->method = $config->get('language_method') ? $config->get('language_method') : LanguageInterface::TYPE_CONTENT;
-    if ($active = \Drupal::service('domain.negotiator')->getActiveDomain()) {
+    $active = \Drupal::service('domain.negotiator')->getActiveDomain();
+    if ($active === NULL) {
+      $active = \Drupal::service('domain.negotiator')->getActiveDomain(TRUE);
+    }
+    if ($active) {
       $properties = [
         'source' => $path,
         'domain_id' => \Drupal::service('domain.negotiator')->getActiveDomain()->id(),
