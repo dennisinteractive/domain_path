@@ -12,7 +12,7 @@ use Drupal\Core\TypedData\TranslatableInterface;
 use Drupal\domain\Entity\Domain;
 use Symfony\Component\HttpFoundation\Request;
 use Drupal\domain\DomainNegotiatorInterface;
-use Drupal\Core\Path\AliasManager;
+use Drupal\path_alias\AliasManager;
 
 /**
  * A domain_path processor for inbound and outbound paths.
