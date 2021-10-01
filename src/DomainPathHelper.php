@@ -347,7 +347,7 @@ class DomainPathHelper {
       unset($domain_path_values['domain_path_delete']);
       foreach ($domain_path_values as $domain_id => $domain_path_data) {
 
-        $alias = $domain_path_data['path'];
+        $alias = trim($domain_path_data['path']);
         if ($this->moduleHandler->moduleExists('domain_path_pathauto')) {
           $domain_path_pathauto_service = \Drupal::service('domain_path_pathauto.generator');
           if ($domain_path_data['pathauto']) {
