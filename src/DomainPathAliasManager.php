@@ -31,13 +31,6 @@ class DomainPathAliasManager extends AliasManager {
   }
 
   public function getPathByAlias($alias, $langcode = NULL) {
-    //https://git.drupalcode.org/project/drupal/-/blob/9.2.x/core/modules/path_alias/src/PathProcessor/AliasPathProcessor.php#L36 didn't pass the $langcode.
-    $langcode = $langcode ?: $this->languageManager->getCurrentLanguage($this->method)->getId();
-    if ($langcode == NULL) {
-      //TODO: keep a "zxx -> Not applicable" in record for langage negotiation failed?
-      $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
-    }
-
     $active = \Drupal::service('domain.negotiator')->getActiveDomain();
     if ($active === NULL) {
       $active = \Drupal::service('domain.negotiator')->getActiveDomain(TRUE);
@@ -48,15 +41,25 @@ class DomainPathAliasManager extends AliasManager {
         'domain_id' => \Drupal::service('domain.negotiator')->getActiveDomain()->id(),
       ];
       $domain_paths = \Drupal::entityTypeManager()->getStorage('domain_path')->loadByProperties($properties);
-      foreach ($domain_paths as $domain_path) {
-        if ($domain_path->getLanguageCode() == $langcode) {
-          $this->domainPath = $domain_path;
+
+      //https://git.drupalcode.org/project/drupal/-/blob/9.2.x/core/modules/path_alias/src/PathProcessor/AliasPathProcessor.php#L36 didn't pass the $langcode.
+      $langcode = $langcode ?: $this->languageManager->getCurrentLanguage(LanguageInterface::TYPE_CONTENT)->getId();
+      if ($langcode == NULL) {
+        //TODO: keep a "zxx -> Not applicable" in record for langage negotiation failed?
+        $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;// LANGCODE_NOT_SPECIFIED = 'und'
+        //return the first record when langage negotiation failed at this moment
+        $this->domainPath = reset($domain_paths);
+        if ($this->domainPath) {
           return $this->domainPath->getSource();
         }
       }
-      $this->domainPath = reset($domain_paths);
-      if ($this->domainPath) {
-        return $this->domainPath->getSource();
+      else {
+        foreach ($domain_paths as $domain_path) {
+          if ($domain_path->getLanguageCode() == $langcode) {
+            $this->domainPath = $domain_path;
+            return $this->domainPath->getSource();
+          }
+        }
       }
     }
     return parent::getPathByAlias($alias, $langcode);
@@ -65,23 +68,27 @@ class DomainPathAliasManager extends AliasManager {
   public function getAliasByPath($path, $langcode = NULL) {
     $config = \Drupal::config('domain_path.settings');
     $this->method = $config->get('language_method') ? $config->get('language_method') : LanguageInterface::TYPE_CONTENT;
+
     $active = \Drupal::service('domain.negotiator')->getActiveDomain();
     if ($active === NULL) {
       $active = \Drupal::service('domain.negotiator')->getActiveDomain(TRUE);
     }
+
     if ($active) {
       $properties = [
         'source' => $path,
         'domain_id' => \Drupal::service('domain.negotiator')->getActiveDomain()->id(),
       ];
-      $langcode = $langcode ?: $this->languageManager->getCurrentLanguage($this->method)->getId();
-      if ($langcode != NULL) {
-        $properties['language'] = $langcode;
-      }
       $domain_paths = \Drupal::entityTypeManager()->getStorage('domain_path')->loadByProperties($properties);
-      $this->domainPath = reset($domain_paths);
-      if ($this->domainPath) {
-        return $this->domainPath->getAlias();
+      $langcode = $langcode ?: $this->languageManager->getCurrentLanguage(LanguageInterface::TYPE_CONTENT)->getId();
+      if ($langcode == NULL) {
+        $langcode = LanguageInterface::LANGCODE_NOT_APPLICABLE;// TODO: 'zxx' = active for any language or not?
+      }
+      foreach ($domain_paths as $domain_path) {
+        if ($domain_path->getLanguageCode() == $langcode) {
+          $this->domainPath = $domain_path;
+          return $this->domainPath->getAlias();
+        }
       }
     }
     return parent::getAliasByPath($path, $langcode);

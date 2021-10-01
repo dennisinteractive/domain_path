@@ -182,19 +182,6 @@ class DomainPathHelper {
         ];
       }
 
-      if ($config->get('hide_path_alias_ui')) {
-        // Hide the default URL alias for better UI
-        if(isset($form['path']['widget'][0]['pathauto'])) {
-          $form['path']['widget'][0]['pathauto']['#default_value'] = 0;
-          $form['path']['widget'][0]['pathauto']['#access'] = FALSE;
-        }
-        if(isset($form['path']['widget'][0]['alias'])) {
-          $form['path']['widget'][0]['alias']['#default_value'] = '';
-          $form['path']['widget'][0]['alias']['#access'] = FALSE;
-        }
-        unset($form['path']['widget'][0]['domain_path']['#description']);
-      }
-
       // If domain settings are on the page for this domain we only show if
       // it's checked. e.g. on the node form, we only show the domain path
       // field for domains we're publishing to
@@ -207,6 +194,18 @@ class DomainPathHelper {
       }
     }
 
+    if ($config->get('hide_path_alias_ui')) {
+      // Hide the default URL alias for better UI
+      if(isset($form['path']['widget'][0]['pathauto'])) {
+        $form['path']['widget'][0]['pathauto']['#default_value'] = 0;
+        $form['path']['widget'][0]['pathauto']['#access'] = FALSE;
+      }
+      if(isset($form['path']['widget'][0]['alias'])) {
+        $form['path']['widget'][0]['alias']['#default_value'] = '';
+        $form['path']['widget'][0]['alias']['#access'] = FALSE;
+      }
+      unset($form['path']['widget'][0]['domain_path']['#description']);
+    }
     $form['path']['widget'][0]['domain_path']['domain_path_delete']['#access'] = $show_delete;
 
     // Add our validation and submit handlers.
