@@ -32,9 +32,6 @@ class DomainPathAliasManager extends AliasManager {
 
   public function getPathByAlias($alias, $langcode = NULL) {
     $active = \Drupal::service('domain.negotiator')->getActiveDomain();
-    if ($active === NULL) {
-      $active = \Drupal::service('domain.negotiator')->getActiveDomain(TRUE);
-    }
     if ($active) {
       $properties = [
         'alias' => $alias,
@@ -70,10 +67,6 @@ class DomainPathAliasManager extends AliasManager {
     $this->method = $config->get('language_method') ? $config->get('language_method') : LanguageInterface::TYPE_CONTENT;
 
     $active = \Drupal::service('domain.negotiator')->getActiveDomain();
-    if ($active === NULL) {
-      $active = \Drupal::service('domain.negotiator')->getActiveDomain(TRUE);
-    }
-
     if ($active) {
       $properties = [
         'source' => $path,
