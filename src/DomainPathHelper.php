@@ -367,9 +367,9 @@ class DomainPathHelper {
         $domain_has_access = $domain_access_all || ($domain_access && !empty($domain_access[$domain_id]));
 
         // We don't want to save the alias if the domain path field is empty,
-        // or if it matches the default alias, or if the domain doesn't have
+        // or if the domain doesn't have
         // access to this entity.
-        if (!$alias || $alias == $default_alias || !$domain_has_access) {
+        if (!$alias || !$domain_has_access) {
           // Delete the existing domain path.
           if ($domain_path) {
             $domain_path->delete();
