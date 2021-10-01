@@ -186,8 +186,17 @@ class DomainPathHelper {
       // it's checked. e.g. on the node form, we only show the domain path
       // field for domains we're publishing to
       if (!empty($form['field_domain_access']['widget']['#options'][$domain_id])) {
-        $form['path']['widget'][0]['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_access[' . $domain_id . ']"]'] = ['unchecked' => TRUE];
+        if ($form['field_domain_access']['widget']['#type'] == 'select') {
+          $form['path']['widget'][0]['domain_path'][$domain_id]['#states']['invisible']['select[name="field_domain_access"]'] = ['!value' => $domain_id];
+        }
+        elseif ($form['field_domain_access']['widget']['#type'] == 'radios') {
+          $form['path']['widget'][0]['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_access"]'] = ['!value' => $domain_id];
+        }
+        else {
+          $form['path']['widget'][0]['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_access[' . $domain_id . ']"]'] = ['unchecked' => TRUE];
+        }
         $form['path']['widget'][0]['domain_path'][$domain_id]['#states']['invisible']['input[name="field_domain_all_affiliates[value]"]'] = ['unchecked' => TRUE];
+
       }
       else if (!empty($form['field_domain_access']['widget']['#options'])) {
         $form['path']['widget'][0]['domain_path'][$domain_id]['#access'] = FALSE;
