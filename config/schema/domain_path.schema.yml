@@ -6,3 +6,6 @@ domain_path.settings:
       type: sequence
       sequence:
         type: string
+    hide_path_alias_ui:
+      label: Hide the default URL alias UI
+      type: boolean

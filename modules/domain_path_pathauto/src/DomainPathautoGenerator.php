@@ -65,6 +65,7 @@ class DomainPathautoGenerator extends PathautoGenerator {
       'data' => $data,
       'bundle' => $entity->bundle(),
       'language' => &$langcode,
+      'domain_id' => $domain_id,
     ];
     $pattern_original = $pattern->getPattern();
     $this->moduleHandler->alter('pathauto_pattern', $pattern, $context);

@@ -103,6 +103,18 @@ class DomainPathSettingsForm extends ConfigFormBase {
       '#description' => $this->t('Select the text to display for each field in entity edition.'),
     ];
 
+    $form['ui'] = [
+      '#type' => 'details',
+      '#open' => TRUE,
+      '#title' => $this->t('Domain path UI'),
+    ];
+
+    $form['ui']['hide_path_alias_ui'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Hide the default URL alias UI'),
+      '#default_value' => !empty($config->get('hide_path_alias_ui')) ? $config->get('hide_path_alias_ui') : FALSE,
+      '#description' => $this->t('Hide the default URL alias options from the UI to avoid the confusion. Domain path will replace the default URL alias with each individual domains alias'),
+    ];
     return parent::buildForm($form, $form_state);
   }
 
@@ -113,6 +125,7 @@ class DomainPathSettingsForm extends ConfigFormBase {
     $this->config('domain_path.settings')
       ->set('entity_types', $form_state->getValue('entity_types'))
       ->set('alias_title', $form_state->getValue('alias_title'))
+      ->set('hide_path_alias_ui', $form_state->getValue('hide_path_alias_ui'))
       ->save();
 
     parent::submitForm($form, $form_state);

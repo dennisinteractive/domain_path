@@ -147,12 +147,17 @@ class DomainPathHelper {
       }
 
       if ($this->moduleHandler->moduleExists('domain_path_pathauto')) {
-        $form['path']['widget'][0]['domain_path'][$domain_id]['pathauto'] = [
-          '#type' => 'checkbox',
-          '#title' => $this->t('Generate automatic URL alias for @domain', ['@domain' =>  Html::escape(rtrim($domain->getPath(), '/'))]),
-          '#default_value' => \Drupal::service('domain_path_pathauto.generator')->domainPathPathautoGenerationIsEnabled($entity, $domain->id()),
-          '#weight' => -1,
-        ];
+        //See https://git.drupalcode.org/project/pathauto/-/blob/8.x-1.x/src/PathautoWidget.php#L42
+        if (isset($form['path']['widget'][0]['pathauto'])) {
+          if ($form['path']['widget'][0]['pathauto']['#type'] == 'checkbox') {
+            $form['path']['widget'][0]['domain_path'][$domain_id]['pathauto'] = [
+              '#type' => 'checkbox',
+              '#title' => $this->t('Generate automatic URL alias for @domain', ['@domain' =>  Html::escape(rtrim($domain->getPath(), '/'))]),
+              '#default_value' => $form['path']['widget'][0]['pathauto']['#default_value'],
+              '#weight' => -1,
+            ];
+          }
+        }
       }
 
       $form['path']['widget'][0]['domain_path'][$domain_id]['path'] = [
@@ -175,6 +180,19 @@ class DomainPathHelper {
             ['input[name="path[0][domain_path][' . $domain_id . '][pathauto]"]' => ['checked' => TRUE]],
           ]
         ];
+      }
+
+      if ($config->get('hide_path_alias_ui')) {
+        // Hide the default URL alias for better UI
+        if(isset($form['path']['widget'][0]['pathauto'])) {
+          $form['path']['widget'][0]['pathauto']['#default_value'] = 0;
+          $form['path']['widget'][0]['pathauto']['#access'] = FALSE;
+        }
+        if(isset($form['path']['widget'][0]['alias'])) {
+          $form['path']['widget'][0]['alias']['#default_value'] = '';
+          $form['path']['widget'][0]['alias']['#access'] = FALSE;
+        }
+        unset($form['path']['widget'][0]['domain_path']['#description']);
       }
 
       // If domain settings are on the page for this domain we only show if
@@ -229,7 +247,7 @@ class DomainPathHelper {
 
     // Check domain access settings if they are on the form.
     $domain_access = [];
-    if (!empty($form['field_domain_access'])) {
+    if (!empty($form['field_domain_access']) && !empty($form_state->getValue('field_domain_access'))) {
       foreach ($form_state->getValue('field_domain_access') as $item) {
         $domain_access[$item['target_id']] = $item['target_id'];
       }
@@ -266,16 +284,18 @@ class DomainPathHelper {
           // Check for duplicates.
           $entity_query = $domain_path_storage->getQuery();
           $entity_query->condition('domain_id', $domain_id)
-            ->condition('alias', $path);
+            ->condition('alias', $path_value);
           if (!$entity->isNew()) {
             $entity_query->condition('source', '/' . $entity->toUrl()->getInternalPath(), '<>');
           }
           $result = $entity_query->execute();
           if ($result) {
-            $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id]['path'], t('Domain path %path matches an existing domain path alias', ['%path' => $path]));
+            $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id]['path'], t('Domain path %path matches an existing domain path alias', ['%path' => $path_value]));
           }
         }
+        $domain_path_values[$domain_id] = $path_value;
       }
+      $form_state->setValue('domain_path', $domain_path_values);
     }
   }
 
@@ -303,7 +323,7 @@ class DomainPathHelper {
 
     // Check domain access settings if they are on the form.
     $domain_access = [];
-    if (!empty($form['field_domain_access'])) {
+    if (!empty($form['field_domain_access']) && !empty($form_state->getValue('field_domain_access'))) {
       foreach ($form_state->getValue('field_domain_access') as $item) {
         $domain_access[$item['target_id']] = $item['target_id'];
       }
@@ -420,11 +440,10 @@ class DomainPathHelper {
    *   Returns array of configured entity types.
    */
   public function getConfiguredEntityTypes() {
-    if ($enabled_entity_types = $this->config->get('entity_types')) {
-      $enabled_entity_types = array_filter($enabled_entity_types);
+    $enabled_entity_types = $this->config->get('entity_types');
+    $enabled_entity_types = array_filter($enabled_entity_types);
 
-      return array_keys($enabled_entity_types);
-    }
+    return array_keys($enabled_entity_types);
   }
 
   /**
