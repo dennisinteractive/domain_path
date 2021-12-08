@@ -203,18 +203,6 @@ class DomainPathHelper {
       }
     }
 
-    if ($config->get('hide_path_alias_ui')) {
-      // Hide the default URL alias for better UI
-      if(isset($form['path']['widget'][0]['pathauto'])) {
-        $form['path']['widget'][0]['pathauto']['#default_value'] = 0;
-        $form['path']['widget'][0]['pathauto']['#access'] = FALSE;
-      }
-      if(isset($form['path']['widget'][0]['alias'])) {
-        $form['path']['widget'][0]['alias']['#default_value'] = '';
-        $form['path']['widget'][0]['alias']['#access'] = FALSE;
-      }
-      unset($form['path']['widget'][0]['domain_path']['#description']);
-    }
     $form['path']['widget'][0]['domain_path']['domain_path_delete']['#access'] = $show_delete;
 
     // Add our validation and submit handlers.
@@ -228,6 +216,15 @@ class DomainPathHelper {
       // If no actions we just tack it on to the form submit handlers.
       $form['#submit'][] = [$this, 'submitEntityForm'];
     }
+
+    // Hide the default URL alias for better UI
+    if ($config->get('hide_path_alias_ui')) {
+      $form['domain_path'] = $form['path']['widget'][0]['domain_path'];
+      if (isset($form['advanced'])) {
+        $form['domain_path']['#group'] = 'advanced';
+      }
+      unset($form['path']);
+    }
   }
 
   /**
@@ -240,10 +237,11 @@ class DomainPathHelper {
    */
   public static function validateEntityForm(array &$form, FormStateInterface $form_state) {
     // Set up variables.
+    $config = \Drupal::config('domain_path.settings');
     $entity = $form_state->getFormObject()->getEntity();
     $domain_path_storage = \Drupal::service('entity_type.manager')->getStorage('domain_path');
     $path_values = $form_state->getValue('path');
-    $domain_path_values = $path_values[0]['domain_path'];
+    $domain_path_values = ($config->get('hide_path_alias_ui')) ? $form_state->getValue('domain_path') : $path_values[0]['domain_path'];
 
     // If we're just deleting the domain paths we don't have to validate
     // anything.
@@ -267,6 +265,7 @@ class DomainPathHelper {
 
     // Validate each path value.
     foreach ($domain_path_values as $domain_id => $domain_path_data) {
+      $field = ($config->get('hide_path_alias_ui')) ? $form['domain_path'][$domain_id] : $form['path']['widget'][0]['domain_path'][$domain_id];
 
       // Don't validate if the domain doesn't have access (we remove aliases
       // for domains that don't have access to this entity).
@@ -278,7 +277,7 @@ class DomainPathHelper {
       if(!(\Drupal::service('module_handler')->moduleExists('domain_path_pathauto') && $domain_path_data['pathauto'])) {
         $path = $domain_path_data['path'];
         if (!empty($path) && $path == $alias) {
-          $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id], t('Domain path "%path" matches the default path alias. You may leave the element blank.', ['%path' => $path]));
+          $form_state->setError($field, t('Domain path "%path" matches the default path alias. You may leave the element blank.', ['%path' => $path]));
         }
         elseif (!empty($path)) {
           // Trim slashes and whitespace from end of path value.
@@ -286,7 +285,7 @@ class DomainPathHelper {
 
           // Check that the paths start with a slash.
           if ($path_value && $path_value[0] !== '/') {
-            $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id]['path'], t('Domain path "%path" needs to start with a slash.', ['%path' => $path]));
+            $form_state->setError($field, t('Domain path "%path" needs to start with a slash.', ['%path' => $path]));
           }
 
           // Check for duplicates.
@@ -298,14 +297,10 @@ class DomainPathHelper {
           }
           $result = $entity_query->execute();
           if ($result) {
-            $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id]['path'], t('Domain path %path matches an existing domain path alias', ['%path' => $path_value]));
+            $form_state->setError($field, t('Domain path %path matches an existing domain path alias', ['%path' => $path_value]));
           }
         }
-        if (isset($path_value)) {
-          $domain_path_values[$domain_id] = $path_value;
-        }
       }
-      $form_state->setValue('domain_path', $domain_path_values);
     }
   }
 
@@ -319,6 +314,7 @@ class DomainPathHelper {
    */
   public function submitEntityForm($form, FormStateInterface $form_state) {
     // Setup Variables
+    $config = \Drupal::config('domain_path.settings');
     $entity = $form_state->getFormObject()->getEntity();
     $entity_system_path = '/' . $entity->toUrl()->getInternalPath();
     // Get the saved alias
@@ -328,7 +324,7 @@ class DomainPathHelper {
       'language' => $entity->language()->getId(),
     ];
     $path_values = $form_state->getValue('path');
-    $domain_path_values = $path_values[0]['domain_path'];
+    $domain_path_values = ($config->get('hide_path_alias_ui')) ? $form_state->getValue('domain_path') : $path_values[0]['domain_path'];
     $domain_path_storage = $this->entityTypeManager->getStorage('domain_path');
 
     // Check domain access settings if they are on the form.
