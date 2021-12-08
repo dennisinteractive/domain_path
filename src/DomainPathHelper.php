@@ -153,7 +153,7 @@ class DomainPathHelper {
             $form['path']['widget'][0]['domain_path'][$domain_id]['pathauto'] = [
               '#type' => 'checkbox',
               '#title' => $this->t('Generate automatic URL alias for @domain', ['@domain' =>  Html::escape(rtrim($domain->getPath(), '/'))]),
-              '#default_value' => $form['path']['widget'][0]['pathauto']['#default_value'],
+              '#default_value' => \Drupal::service('domain_path_pathauto.generator')->domainPathPathautoGenerationIsEnabled($entity, $domain->id()),
               '#weight' => -1,
             ];
           }
