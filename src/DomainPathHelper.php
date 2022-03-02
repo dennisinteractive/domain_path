@@ -274,7 +274,7 @@ class DomainPathHelper {
         continue;
       }
       // If domain pathauto is not enabled, validate user entered path.
-      if(!(\Drupal::service('module_handler')->moduleExists('domain_path_pathauto') && $domain_path_data['pathauto'])) {
+      if (!\Drupal::service('module_handler')->moduleExists('domain_path_pathauto') || empty($domain_path_data['pathauto'])) {
         $path = $domain_path_data['path'];
         if (!empty($path) && $path == $alias) {
           $form_state->setError($field, t('Domain path "%path" matches the default path alias. You may leave the element blank.', ['%path' => $path]));
@@ -346,7 +346,7 @@ class DomainPathHelper {
         $alias = trim($domain_path_data['path']);
         if ($this->moduleHandler->moduleExists('domain_path_pathauto')) {
           $domain_path_pathauto_service = \Drupal::service('domain_path_pathauto.generator');
-          if ($domain_path_data['pathauto']) {
+          if (!empty($domain_path_data['pathauto'])) {
             // Generate alias using pathauto.
             $alias = $domain_path_pathauto_service->createEntityAlias($entity, 'return', $domain_id);
             // Remember pathauto default enabled setting.
