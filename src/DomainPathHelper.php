@@ -146,20 +146,6 @@ class DomainPathHelper {
         $label = $domain->getPath();
       }
 
-      if ($this->moduleHandler->moduleExists('domain_path_pathauto')) {
-        //See https://git.drupalcode.org/project/pathauto/-/blob/8.x-1.x/src/PathautoWidget.php#L42
-        if (isset($form['path']['widget'][0]['pathauto'])) {
-          if ($form['path']['widget'][0]['pathauto']['#type'] == 'checkbox') {
-            $form['path']['widget'][0]['domain_path'][$domain_id]['pathauto'] = [
-              '#type' => 'checkbox',
-              '#title' => $this->t('Generate automatic URL alias for @domain', ['@domain' =>  Html::escape(rtrim($domain->getPath(), '/'))]),
-              '#default_value' => \Drupal::service('domain_path_pathauto.generator')->domainPathPathautoGenerationIsEnabled($entity, $domain->id()),
-              '#weight' => -1,
-            ];
-          }
-        }
-      }
-
       $form['path']['widget'][0]['domain_path'][$domain_id]['path'] = [
         '#type' => 'textfield',
         '#title' => Html::escape(rtrim($label, '/')),
@@ -171,16 +157,6 @@ class DomainPathHelper {
           ]
         ],
       ];
-
-      if($this->moduleHandler->moduleExists('domain_path_pathauto')) {
-        $form['path']['widget'][0]['domain_path'][$domain_id]['path']['#states'] = [
-          'disabled' => [
-            ['input[name="path[0][domain_path][domain_path_delete]"]' => ['checked' => TRUE]],
-            'OR',
-            ['input[name="path[0][domain_path][' . $domain_id . '][pathauto]"]' => ['checked' => TRUE]],
-          ]
-        ];
-      }
 
       // If domain settings are on the page for this domain we only show if
       // it's checked. e.g. on the node form, we only show the domain path
@@ -249,7 +225,6 @@ class DomainPathHelper {
       return;
     }
     unset($domain_path_values['domain_path_delete']);
-    $alias = isset($path_values[0]['alias']) ? $path_values[0]['alias'] : NULL;
 
     // Check domain access settings if they are on the form.
     $domain_access = [];
@@ -265,42 +240,13 @@ class DomainPathHelper {
 
     // Validate each path value.
     foreach ($domain_path_values as $domain_id => $domain_path_data) {
-      $field = ($config->get('hide_path_alias_ui')) ? $form['domain_path'][$domain_id] : $form['path']['widget'][0]['domain_path'][$domain_id];
-
       // Don't validate if the domain doesn't have access (we remove aliases
       // for domains that don't have access to this entity).
       $domain_has_access = $domain_access_all || ($domain_access && !empty($domain_access[$domain_id]));
       if (!$domain_has_access) {
         continue;
       }
-      // If domain pathauto is not enabled, validate user entered path.
-      if (!\Drupal::service('module_handler')->moduleExists('domain_path_pathauto') || empty($domain_path_data['pathauto'])) {
-        $path = $domain_path_data['path'];
-        if (!empty($path) && $path == $alias) {
-          $form_state->setError($field, t('Domain path "%path" matches the default path alias. You may leave the element blank.', ['%path' => $path]));
-        }
-        elseif (!empty($path)) {
-          // Trim slashes and whitespace from end of path value.
-          $path_value = rtrim(trim($path), " \\/");
-
-          // Check that the paths start with a slash.
-          if ($path_value && $path_value[0] !== '/') {
-            $form_state->setError($field, t('Domain path "%path" needs to start with a slash.', ['%path' => $path]));
-          }
-
-          // Check for duplicates.
-          $entity_query = $domain_path_storage->getQuery();
-          $entity_query->condition('domain_id', $domain_id)
-            ->condition('alias', $path_value);
-          if (!$entity->isNew()) {
-            $entity_query->condition('source', '/' . $entity->toUrl()->getInternalPath(), '<>');
-          }
-          $result = $entity_query->execute();
-          if ($result) {
-            $form_state->setError($field, t('Domain path %path matches an existing domain path alias', ['%path' => $path_value]));
-          }
-        }
-      }
+      $form_state->setValue('domain_path', $domain_path_values);
     }
   }
 
@@ -344,18 +290,6 @@ class DomainPathHelper {
       foreach ($domain_path_values as $domain_id => $domain_path_data) {
 
         $alias = trim($domain_path_data['path']);
-        if ($this->moduleHandler->moduleExists('domain_path_pathauto')) {
-          $domain_path_pathauto_service = \Drupal::service('domain_path_pathauto.generator');
-          if (!empty($domain_path_data['pathauto'])) {
-            // Generate alias using pathauto.
-            $alias = $domain_path_pathauto_service->createEntityAlias($entity, 'return', $domain_id);
-            // Remember pathauto default enabled setting.
-            $domain_path_pathauto_service->setDomainPathPathautoState($entity, $domain_id, TRUE);
-          } else {
-            // Delete pathauto default enabled setting.
-            $domain_path_pathauto_service->deleteDomainPathPathautoState($entity, $domain_id);
-          }
-        }
         // Get the existing domain path for this domain if it exists.
         $properties['domain_id'] = $domain_id;
         $domain_paths = $domain_path_storage->loadByProperties($properties);
