@@ -146,6 +146,7 @@ class DomainPathHelper {
         $label = $domain->getPath();
       }
 
+      $form_state->addBuildInfo('pathauto_checkbox', $form['path']['widget'][0]['pathauto']['#type'] === 'checkbox');
       $form['path']['widget'][0]['domain_path'][$domain_id]['path'] = [
         '#type' => 'textfield',
         '#title' => Html::escape(rtrim($label, '/')),

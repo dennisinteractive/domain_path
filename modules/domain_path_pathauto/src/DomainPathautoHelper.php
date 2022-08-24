@@ -3,6 +3,8 @@
 namespace Drupal\domain_path_pathauto;
 
 use Drupal\Component\Utility\Html;
+use Drupal\Component\Utility\NestedArray;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -30,11 +32,23 @@ class DomainPathautoHelper {
   protected DomainPathautoGenerator $domainPathautoGenerator;
 
   /**
+   * ConfigFactory service.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   */
+  protected ConfigFactoryInterface $configFactory;
+
+  /**
    * DomainPathautoHelper constructor.
    */
-  public function __construct(EntityTypeManagerInterface $entity_type_manager, DomainPathautoGenerator $domain_pathauto_generator) {
+  public function __construct(
+    EntityTypeManagerInterface $entity_type_manager,
+    DomainPathautoGenerator $domain_pathauto_generator,
+    ConfigFactoryInterface $config_factory
+  ) {
     $this->entityTypeManager = $entity_type_manager;
     $this->domainPathautoGenerator = $domain_pathauto_generator;
+    $this->configFactory = $config_factory;
   }
 
   /**
@@ -50,29 +64,38 @@ class DomainPathautoHelper {
    * @throws \Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException
    * @throws \Drupal\Component\Plugin\Exception\PluginNotFoundException
    */
-  public function alterEntityForm(array &$form, FormStateInterface $form_state, ContentEntityInterface $entity) {
+  public function alterEntityForm(array &$form, FormStateInterface $form_state, ContentEntityInterface $entity, array $keys) {
+    // We need to use it in validation callback.
+    $form_state->addBuildInfo('element_keys', $keys);
     $domains = $this->entityTypeManager->getStorage('domain')
       ->loadMultipleSorted();
+    // When setting states of checkboxes it's matter whether we have enabled or
+    // disabled default pathauto UI. Depending on it, we have different paths.
+    $input_selector_prefix = 'input[name="domain_path';
+    if (!$this->configFactory->get('domain_path.settings')->get('hide_path_alias_ui')) {
+      $input_selector_prefix = 'input[name="path[0][domain_path]';
+    }
+    $build_info = $form_state->getBuildInfo();
     foreach ($domains as $domain_id => $domain) {
       // See https://git.drupalcode.org/project/pathauto/-/blob/8.x-1.x/src/PathautoWidget.php#L42
       // Generate checkboxes per each domain.
-      if (isset($form['path']['widget'][0]['pathauto']) && $form['path']['widget'][0]['pathauto']['#type'] === 'checkbox') {
-        $form['path']['widget'][0]['domain_path'][$domain_id]['pathauto'] = [
+      if ($build_info['pathauto_checkbox'] && NestedArray::getValue($form, $keys)) {
+        NestedArray::setValue($form, array_merge($keys, [$domain_id, 'pathauto']), [
           '#type' => 'checkbox',
           '#title' => $this->t('Generate automatic URL alias for @domain', ['@domain' => Html::escape(rtrim($domain->getPath(), '/'))]),
           '#default_value' => $this->domainPathautoGenerator->domainPathPathautoGenerationIsEnabled($entity, $domain->id()),
           '#weight' => -1,
-        ];
+        ]);
       }
       // Disable form element if the "delete-checkbox" is active or automatic
       // creation of alias is checked.
-      $form['path']['widget'][0]['domain_path'][$domain_id]['path']['#states'] = [
+      NestedArray::setValue($form, array_merge($keys, [$domain_id, 'path', '#states']), [
         'disabled' => [
-          ['input[name="path[0][domain_path][domain_path_delete]"]' => ['checked' => TRUE]],
+          [$input_selector_prefix . '[domain_path_delete]"]' => ['checked' => TRUE]],
           'OR',
-          ['input[name="path[0][domain_path][' . $domain_id . '][pathauto]"]' => ['checked' => TRUE]],
+          [$input_selector_prefix . '[' . $domain_id . '][pathauto]"]' => ['checked' => TRUE]],
         ],
-      ];
+      ]);
     }
     $form['#validate'][] = [$this, 'validateAlteredForm'];
     if (!empty($form['actions'])) {
@@ -104,7 +127,7 @@ class DomainPathautoHelper {
     // Set up variables.
     $entity = $form_state->getFormObject()->getEntity();
     $path_values = $form_state->getValue('path');
-    $domain_path_values = $path_values[0]['domain_path'];
+    $domain_path_values = ($this->configFactory->get('domain_path.settings')->get('hide_path_alias_ui')) ? $form_state->getValue('domain_path') : $path_values[0]['domain_path'];
     $alias = $path_values[0]['alias'] ?? NULL;
     // Check domain access settings if they are on the form.
     $domain_access = [];
@@ -113,6 +136,7 @@ class DomainPathautoHelper {
         $domain_access[$item['target_id']] = $item['target_id'];
       }
     }
+    $build_info = $form_state->getBuildInfo();
     $domain_access_all = empty($form['field_domain_all_affiliates']) || $form_state->getValue('field_domain_all_affiliates')['value'];
     // Validate each path value.
     foreach ($domain_path_values as $domain_id => $domain_path_data) {
@@ -124,10 +148,10 @@ class DomainPathautoHelper {
         continue;
       }
       // If domain pathauto is not enabled, validate user entered path.
-      if ($domain_path_data['pathauto']) {
+      if (!$domain_path_data['pathauto']) {
         $path = $domain_path_data['path'];
         if (!empty($path) && $path === $alias) {
-          $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id], $this->t('Domain path "%path" matches the default path alias. You may leave the element blank.', ['%path' => $path]));
+          $form_state->setError(NestedArray::getValue($form, array_merge($build_info['element_keys'], [$domain_id])), $this->t('Domain path "%path" matches the default path alias. You may leave the element blank.', ['%path' => $path]));
         }
         elseif (!empty($path)) {
           // Trim slashes and whitespace from end of path value.
@@ -135,7 +159,7 @@ class DomainPathautoHelper {
 
           // Check that the paths start with a slash.
           if ($path_value && $path_value[0] !== '/') {
-            $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id]['path'], $this->t('Domain path "%path" needs to start with a slash.', ['%path' => $path]));
+            $form_state->setError(NestedArray::getValue($form, array_merge($build_info['element_keys'], [$domain_id, 'path'])), $this->t('Domain path "%path" needs to start with a slash.', ['%path' => $path]));
           }
 
           // Check for duplicates.
@@ -148,7 +172,7 @@ class DomainPathautoHelper {
           }
           $result = $entity_query->execute();
           if ($result) {
-            $form_state->setError($form['path']['widget'][0]['domain_path'][$domain_id]['path'], $this->t('Domain path %path matches an existing domain path alias', ['%path' => $path_value]));
+            $form_state->setError(NestedArray::getValue($form, array_merge($build_info['element_keys'], [$domain_id, 'path'])), $this->t('Domain path %path matches an existing domain path alias', ['%path' => $path_value]));
           }
         }
         if (isset($path_value)) {
@@ -172,7 +196,7 @@ class DomainPathautoHelper {
    */
   public function submitAlteredEntityForm(array $form, FormStateInterface $form_state) {
     $path_values = $form_state->getValue('path');
-    $domain_path_values = $path_values[0]['domain_path'];
+    $domain_path_values = ($this->configFactory->get('domain_path.settings')->get('hide_path_alias_ui')) ? $form_state->getValue('domain_path') : $path_values[0]['domain_path'];
     $entity = $form_state->getFormObject()->getEntity();
     $entity_system_path = '/' . $entity->toUrl()->getInternalPath();
     $properties = [
