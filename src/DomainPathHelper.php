@@ -231,6 +231,9 @@ class DomainPathHelper {
     $domain_access = [];
     if (!empty($form['field_domain_access']) && !empty($form_state->getValue('field_domain_access'))) {
       foreach ($form_state->getValue('field_domain_access') as $item) {
+        if (!is_array($item)) {
+          continue;
+        }
         $domain_access[$item['target_id']] = $item['target_id'];
       }
     }
@@ -277,9 +280,7 @@ class DomainPathHelper {
     // Check domain access settings if they are on the form.
     $domain_access = [];
     if (!empty($form['field_domain_access']) && !empty($form_state->getValue('field_domain_access'))) {
-      foreach ($form_state->getValue('field_domain_access') as $item) {
-        $domain_access[$item['target_id']] = $item['target_id'];
-      }
+      $domain_access = $this->processDomainAccessField($form_state->getValue('field_domain_access'));
     }
     // If domain access is on for this form, we check the "all affiliates"
     // checkbox, otherwise we just assume it's available on all domains.
@@ -398,6 +399,21 @@ class DomainPathHelper {
    */
   public function domainPathsIsEnabled(EntityInterface $entity) {
     return in_array($entity->getEntityTypeId(), $this->getConfiguredEntityTypes());
+  }
+
+  /**
+   * Returns an array of processed domain access field values.
+   */
+  public function processDomainAccessField($field_values): array {
+    $domain_access = [];
+    foreach ($field_values as $field_value) {
+      if (!is_array($field_value)) {
+        continue;
+      }
+      $domain_access[$field_value['target_id']] = $field_value['target_id'];
+    }
+
+    return $domain_access;
   }
 
 }

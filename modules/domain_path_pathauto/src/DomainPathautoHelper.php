@@ -9,6 +9,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\domain_path\DomainPathHelper;
 
 /**
  * DomainPathauto helper service.
@@ -39,16 +40,25 @@ class DomainPathautoHelper {
   protected ConfigFactoryInterface $configFactory;
 
   /**
+   * DomainPath helper service.
+   *
+   * @var \Drupal\domain_path\DomainPathHelper
+   */
+  protected DomainPathHelper $domainPathHelper;
+
+  /**
    * DomainPathautoHelper constructor.
    */
   public function __construct(
     EntityTypeManagerInterface $entity_type_manager,
     DomainPathautoGenerator $domain_pathauto_generator,
-    ConfigFactoryInterface $config_factory
+    ConfigFactoryInterface $config_factory,
+    DomainPathHelper $domain_path_helper
   ) {
     $this->entityTypeManager = $entity_type_manager;
     $this->domainPathautoGenerator = $domain_pathauto_generator;
     $this->configFactory = $config_factory;
+    $this->domainPathHelper = $domain_path_helper;
   }
 
   /**
@@ -132,9 +142,7 @@ class DomainPathautoHelper {
     // Check domain access settings if they are on the form.
     $domain_access = [];
     if (!empty($form['field_domain_access']) && !empty($form_state->getValue('field_domain_access'))) {
-      foreach ($form_state->getValue('field_domain_access') as $item) {
-        $domain_access[$item['target_id']] = $item['target_id'];
-      }
+      $domain_access = $this->domainPathHelper->processDomainAccessField($form_state->getValue('field_domain_access'));
     }
     $build_info = $form_state->getBuildInfo();
     $domain_access_all = empty($form['field_domain_all_affiliates']) || $form_state->getValue('field_domain_all_affiliates')['value'];
@@ -207,9 +215,7 @@ class DomainPathautoHelper {
     // Check domain access settings if they are on the form.
     $domain_access = [];
     if (!empty($form['field_domain_access']) && !empty($form_state->getValue('field_domain_access'))) {
-      foreach ($form_state->getValue('field_domain_access') as $item) {
-        $domain_access[$item['target_id']] = $item['target_id'];
-      }
+      $domain_access = $this->domainPathHelper->processDomainAccessField($form_state->getValue('field_domain_access'));
     }
     // If not set to delete, then save changes.
     if (empty($domain_path_values['domain_path_delete'])) {
