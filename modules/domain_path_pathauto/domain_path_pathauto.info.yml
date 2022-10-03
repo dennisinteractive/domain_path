@@ -6,8 +6,3 @@ package: Domain
 dependencies:
   - domain_path:domain_path
   - pathauto:pathauto(>= 1.8)
-
-# Information added by Drupal.org packaging script on 2021-07-29
-version: '8.x-1.0'
-project: 'domain_path'
-datestamp: 1627561818

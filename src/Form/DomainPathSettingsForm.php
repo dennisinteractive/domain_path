@@ -8,6 +8,7 @@ use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\Core\Language\LanguageInterface;
 
 /**
  * Class DomainPathSettingsForm.
@@ -75,6 +76,9 @@ class DomainPathSettingsForm extends ConfigFormBase {
     foreach ($this->entityTypeManager->getDefinitions() as $entity_type_id => $entity_type) {
       if (is_subclass_of($entity_type->getClass(), FieldableEntityInterface::class) && $entity_type->hasLinkTemplate('canonical')) {
         $default_value = !empty($enabled_entity_types[$entity_type_id]) ? $enabled_entity_types[$entity_type_id] : NULL;
+        if ($entity_type_id == 'domain_path' || $entity_type_id == 'domain_path_redirect') {
+          continue;
+        }
         $form['entity_types'][$entity_type_id] = [
           '#type' => 'checkbox',
           '#title' => $entity_type->getLabel(),
@@ -82,34 +86,41 @@ class DomainPathSettingsForm extends ConfigFormBase {
         ];
       }
     }
-
-    $form['display_domain'] = [
+/*
+    $form['ui'] = [
       '#type' => 'details',
       '#open' => TRUE,
-      '#title' => $this->t('Domain path alias title'),
+      '#title' => $this->t('UI Settings'),
     ];
+*/
 
+    $form['language_method'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('The method of language detection'),
+      '#default_value' => !empty($config->get('alias_title')) ? $config->get('alias_title') : 'name',
+      '#options' => [
+        LanguageInterface::TYPE_CONTENT => $this->t('Content language'),
+        LanguageInterface::TYPE_INTERFACE => $this->t('Interface text language'),
+        LanguageInterface::TYPE_URL => $this->t('Language from URLs')
+      ],
+      '#default_value' => !empty($config->get('language_method')) ? $config->get('language_method') : LanguageInterface::TYPE_CONTENT,
+      '#description' => $this->t('If you enabled multilingual content for certain domains, you need to set it according to your language settings.'),
+    ];
     $options = [
       'name' => $this->t('The domain display name'),
       'hostname' => $this->t('The raw hostname'),
       'url' => $this->t('The domain base URL'),
     ];
 
-    $form['display_domain']['alias_title'] = [
+    $form['alias_title'] = [
       '#type' => 'radios',
-      '#title' => $this->t('Title'),
+      '#title' => $this->t('Domain path alias title'),
       '#default_value' => !empty($config->get('alias_title')) ? $config->get('alias_title') : 'name',
       '#options' => $options,
       '#description' => $this->t('Select the text to display for each field in entity edition.'),
     ];
 
-    $form['ui'] = [
-      '#type' => 'details',
-      '#open' => TRUE,
-      '#title' => $this->t('Domain path UI'),
-    ];
-
-    $form['ui']['hide_path_alias_ui'] = [
+    $form['hide_path_alias_ui'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Hide the default URL alias UI'),
       '#default_value' => !empty($config->get('hide_path_alias_ui')) ? $config->get('hide_path_alias_ui') : FALSE,
@@ -124,6 +135,7 @@ class DomainPathSettingsForm extends ConfigFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->config('domain_path.settings')
       ->set('entity_types', $form_state->getValue('entity_types'))
+      ->set('language_method', $form_state->getValue('language_method'))
       ->set('alias_title', $form_state->getValue('alias_title'))
       ->set('hide_path_alias_ui', $form_state->getValue('hide_path_alias_ui'))
       ->save();
