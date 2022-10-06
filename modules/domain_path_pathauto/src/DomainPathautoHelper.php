@@ -5,6 +5,7 @@ namespace Drupal\domain_path_pathauto;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -17,6 +18,7 @@ use Drupal\domain_path\DomainPathHelper;
 class DomainPathautoHelper {
 
   use StringTranslationTrait;
+  use DependencySerializationTrait;
 
   /**
    * The EntityTypeManager.
@@ -155,8 +157,9 @@ class DomainPathautoHelper {
       if (!$domain_has_access) {
         continue;
       }
+
       // If domain pathauto is not enabled, validate user entered path.
-      if (!$domain_path_data['pathauto']) {
+      if (array_key_exists('pathauto', $domain_path_data) && !$domain_path_data['pathauto']) {
         $path = $domain_path_data['path'];
         if (!empty($path) && $path === $alias) {
           $form_state->setError(NestedArray::getValue($form, array_merge($build_info['element_keys'], [$domain_id])), $this->t('Domain path "%path" matches the default path alias. You may leave the element blank.', ['%path' => $path]));
