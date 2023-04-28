@@ -5,6 +5,7 @@ namespace Drupal\domain_path_pathauto;
 use Drupal\Component\Utility\Html;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
@@ -16,6 +17,7 @@ use Drupal\domain_path\DomainPathHelper;
  */
 class DomainPathautoHelper {
 
+  use DependencySerializationTrait;
   use StringTranslationTrait;
 
   /**
