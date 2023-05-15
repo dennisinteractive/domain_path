@@ -6,8 +6,11 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityListBuilder;
 use Drupal\Core\Entity\EntityStorageInterface;
+use Drupal\Core\Form\FormBuilderInterface;
 use Drupal\Core\Routing\UrlGeneratorInterface;
+use Drupal\domain_path\Form\DomainPathFilterForm;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Provides a list controller for domain_path entity.
@@ -15,6 +18,20 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * @ingroup domain_path
  */
 class DomainPathListBuilder extends EntityListBuilder {
+
+  /**
+   * The current request.
+   *
+   * @var \Symfony\Component\HttpFoundation\Request
+   */
+  protected $currentRequest;
+
+  /**
+   * The form builder.
+   *
+   * @var \Drupal\Core\Form\FormBuilderInterface
+   */
+  protected $formBuilder;
 
   /**
    * The url generator.
@@ -31,7 +48,9 @@ class DomainPathListBuilder extends EntityListBuilder {
     return new static(
       $entity_type,
       $container->get('entity_type.manager')->getStorage($entity_type->id()),
-      $container->get('url_generator')
+      $container->get('url_generator'),
+      $container->get('request_stack')->getCurrentRequest(),
+      $container->get('form_builder')
     );
   }
 
@@ -45,10 +64,36 @@ class DomainPathListBuilder extends EntityListBuilder {
    * @param \Drupal\Core\Routing\UrlGeneratorInterface $url_generator
    *   The url generator.
    */
-  public function __construct(EntityTypeInterface $entity_type, EntityStorageInterface $storage, UrlGeneratorInterface $url_generator) {
+  public function __construct(EntityTypeInterface $entity_type, EntityStorageInterface $storage, UrlGeneratorInterface $url_generator, Request $current_request, FormBuilderInterface $form_builder) {
     parent::__construct($entity_type, $storage);
     $this->urlGenerator = $url_generator;
+    $this->currentRequest = $current_request;
+    $this->formBuilder = $form_builder;
   }
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function getEntityIds() {
+    $query = $this->getStorage()->getQuery();
+
+    $search = $this->currentRequest->query->get('search');
+    if ($search) {
+      $query->condition('alias', $search, 'CONTAINS');
+    }
+
+    // Only add the pager if a limit is specified.
+    if ($this->limit) {
+      $query->pager($this->limit);
+    }
+
+    // Allow the entity query to sort using the table header.
+    $header = $this->buildHeader();
+    $query->tableSort($header);
+
+    return $query->execute();
+  }
+
 
   /**
    * {@inheritdoc}
@@ -80,6 +125,17 @@ class DomainPathListBuilder extends EntityListBuilder {
     $row['alias'] = $entity->get('alias')->value;
 
     return $row + parent::buildRow($entity);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function render() {
+    $keys = $this->currentRequest->query->get('search');
+    $build['path_admin_filter_form'] = $this->formBuilder->getForm(DomainPathFilterForm::class, $keys);
+    $build += parent::render();
+
+    return $build;
   }
 
 }

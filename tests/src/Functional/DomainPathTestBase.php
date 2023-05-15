@@ -14,38 +14,30 @@ abstract class DomainPathTestBase extends DomainTestBase {
   protected $domains;
 
   /**
-   * Sets a base hostname for running tests.
-   *
-   * When creating test domains, try to use $this->base_hostname or the
-   * domainCreateTestDomains() method.
-   *
-   * @var string
-   */
-  public $base_hostname;
-
-  /**
    * Modules to enable.
    *
    * @var array
    */
-  public static $modules = ['domain_path', 'field', 'node', 'user', 'path', 'system'];
-
-  /**
-   * We use the standard profile for testing.
-   *
-   * @var string
-   */
-  protected $profile = 'standard';
+  public static $modules = [
+    'domain_path',
+    'field',
+    'node',
+    'user',
+    'path',
+    'system',
+  ];
 
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected $defaultTheme = 'stark';
+
+  /**
+   * {@inheritdoc}
+   */
+  protected function setUp(): void {
     parent::setUp();
-    // Create Basic page and Article node types.
-    if ($this->profile != 'standard') {
-      $this->drupalCreateContentType(['type' => 'page', 'name' => 'Basic page']);
-    }
+
     // Create domains.
     $this->domainCreateTestDomains(2);
     $this->domains = $this->getDomains();

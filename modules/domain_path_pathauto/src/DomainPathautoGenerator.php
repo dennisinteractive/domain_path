@@ -8,6 +8,7 @@ use Drupal\Core\Entity\Exception\UndefinedLinkTemplateException;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\pathauto\PathautoGenerator;
+use Drupal\pathauto\PathautoGeneratorInterface;
 
 /**
  * Provides methods for generating domain path aliases.
@@ -65,6 +66,7 @@ class DomainPathautoGenerator extends PathautoGenerator {
       'data' => $data,
       'bundle' => $entity->bundle(),
       'language' => &$langcode,
+      'domain_id' => $domain_id,
     ];
     $pattern_original = $pattern->getPattern();
     $this->moduleHandler->alter('pathauto_pattern', $pattern, $context);

@@ -4,5 +4,5 @@ description: Domain Path Pathauto support
 core_version_requirement: ^8.8 || ^9
 package: Domain
 dependencies:
-  - domain_path
-  - pathauto(>= 1.8)
+  - domain_path:domain_path
+  - pathauto:pathauto(>= 1.8)

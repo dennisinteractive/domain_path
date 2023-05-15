@@ -2,7 +2,8 @@ name: 'Domain Path'
 description: 'Allows separate path aliases per domain.'
 type: module
 package: Domain
-core_version_requirement: ^8.8 || ^9
+core_version_requirement: ^8.8 || ^9 || ^10
+configure: entity.domain_path_settings
 dependencies:
-  - path
-  - domain
+  - drupal:path
+  - domain:domain
