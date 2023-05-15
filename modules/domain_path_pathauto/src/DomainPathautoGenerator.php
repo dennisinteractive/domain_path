@@ -8,6 +8,7 @@ use Drupal\Core\Entity\Exception\UndefinedLinkTemplateException;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\pathauto\PathautoGenerator;
+use Drupal\pathauto\PathautoGeneratorInterface;
 
 /**
  * Provides methods for generating domain path aliases.
