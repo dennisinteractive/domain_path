@@ -150,6 +150,11 @@ class DomainPathautoHelper {
     $build_info = $form_state->getBuildInfo();
     $domain_access_all = empty($form['field_domain_all_affiliates']) || $form_state->getValue('field_domain_all_affiliates')['value'];
     // Validate each path value.
+
+    if (array_key_exists('domain_path_delete', $domain_path_values)) {
+      unset($domain_path_values['domain_path_delete']);
+    }
+
     foreach ($domain_path_values as $domain_id => $domain_path_data) {
 
       // Don't validate if the domain doesn't have access (we remove aliases
