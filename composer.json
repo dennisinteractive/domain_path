@@ -1,7 +1,16 @@
 {
-  "name": "drupal/domain_path",
-  "type": "drupal-module",
-  "description": "Allow the same path to be used across different domains",
-  "homepage": "https://github.com/dennisinteractive/domain_path",
-  "license": "GPL-2.0+"
+    "name": "drupal/domain_path",
+    "description": "Allow the same path to be used across different domains.",
+    "type": "drupal-module",
+    "homepage": "https://github.com/dennisinteractive/domain_path",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "drupal/domain": "^1.0-beta"
+    },
+    "require-dev": {
+        "drupal/pathauto": "1.x-dev"
+    },
+    "suggest": {
+        "drupal/pathauto": "Automatic path aliases with Domain Path Pathauto submodule."
+    }
 }

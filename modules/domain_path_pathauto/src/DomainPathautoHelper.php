@@ -17,6 +17,7 @@ use Drupal\domain_path\DomainPathHelper;
  */
 class DomainPathautoHelper {
 
+  use DependencySerializationTrait;
   use StringTranslationTrait;
   use DependencySerializationTrait;
 

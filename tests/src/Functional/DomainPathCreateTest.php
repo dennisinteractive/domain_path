@@ -12,7 +12,7 @@ class DomainPathCreateTest extends DomainPathTestBase {
   /**
    * {@inheritdoc}
    */
-  protected function setUp() {
+  protected function setUp(): void {
     parent::setUp();
   }
 
@@ -23,7 +23,6 @@ class DomainPathCreateTest extends DomainPathTestBase {
     // No domain paths should exist.
     $this->domainPathTableIsEmpty();
     $node = $this->drupalCreateNode();
-    $this->assertTrue($node, 'Node found in database.');
     $domain_path_storage = \Drupal::service('entity_type.manager')->getStorage('domain_path');
     $default_domain_id = NULL;
     foreach ($this->domains as $domain) {
